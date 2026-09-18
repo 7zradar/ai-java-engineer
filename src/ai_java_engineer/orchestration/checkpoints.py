@@ -87,3 +87,76 @@ class CheckpointStore:
             return None
         finally:
             conn.close()
+
+    def list_all_runs(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Lists latest state for recent executions."""
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT c.execution_id, c.node_name, c.status, c.created_at, c.state_json
+                FROM checkpoints c
+                INNER JOIN (
+                    SELECT execution_id, MAX(checkpoint_id) as max_id
+                    FROM checkpoints
+                    GROUP BY execution_id
+                ) m ON c.execution_id = m.execution_id AND c.checkpoint_id = m.max_id
+                ORDER BY c.checkpoint_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            runs = []
+            for row in cur.fetchall():
+                exec_id, node_name, status, created_at, state_json = row
+                title = ""
+                iteration = 0
+                changed_files = []
+                try:
+                    data = json.loads(state_json)
+                    req = data.get("requirement", {})
+                    title = req.get("title", "") if isinstance(req, dict) else ""
+                    iteration = data.get("iteration", 0)
+                    changed_files = data.get("changed_files", [])
+                except Exception:
+                    pass
+                runs.append({
+                    "execution_id": exec_id,
+                    "node_name": node_name,
+                    "status": status,
+                    "created_at": created_at,
+                    "title": title or exec_id,
+                    "iteration": iteration,
+                    "changed_files_count": len(changed_files),
+                })
+            return runs
+        finally:
+            conn.close()
+
+    def get_checkpoints_timeline(self, execution_id: str) -> list[dict[str, Any]]:
+        """Returns ordered timeline of execution nodes."""
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT checkpoint_id, node_name, status, created_at
+                FROM checkpoints
+                WHERE execution_id = ?
+                ORDER BY checkpoint_id ASC
+                """,
+                (execution_id,),
+            )
+            return [
+                {
+                    "checkpoint_id": r[0],
+                    "node_name": r[1],
+                    "status": r[2],
+                    "created_at": r[3],
+                }
+                for r in cur.fetchall()
+            ]
+        finally:
+            conn.close()
+

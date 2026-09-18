@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Java Engineer | Plataforma Multi-Agente Autónoma</title>
+  <meta name="description" content="Dashboard gobernado, observable y reproducible para ingeniería de software Java con agentes autónomos.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- TOP NAVIGATION BAR -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div class="brand-info">
+          <div class="brand-title">
+            AI Java Engineer <span class="badge-accent">Enterprise</span>
+          </div>
+          <div class="brand-subtitle">Plataforma Multi-Agente Autónoma • Java 21 & Spring Boot</div>
+        </div>
+      </div>
+
+      <div class="navbar-center">
+        <div class="status-pill" id="system-status-pill">
+          <span class="status-dot healthy"></span>
+          <span id="system-status-text">Conectando...</span>
+        </div>
+        <div class="config-tag" id="provider-tag">LLM: Mock</div>
+        <div class="config-tag" id="backend-tag">Backend: Mock</div>
+      </div>
+
+      <div class="navbar-actions">
+        <button id="btn-refresh" class="btn btn-secondary" title="Actualizar lista y estado">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+          </svg>
+          Actualizar
+        </button>
+        <a href="/docs" target="_blank" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+          </svg>
+          Swagger API
+        </a>
+        <button id="btn-new-run" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Nueva Tarea
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN BODY GRID -->
+    <div class="main-container">
+      <!-- SIDEBAR: RUNS LIST -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-title">
+            <span>Historial de Tareas</span>
+            <span class="count-badge" id="runs-count">0</span>
+          </div>
+          <div class="sidebar-actions">
+            <button id="btn-filter-all" class="filter-btn active">Todas</button>
+            <button id="btn-filter-active" class="filter-btn">En curso</button>
+          </div>
+        </div>
+
+        <div class="runs-list" id="runs-list-container">
+          <div class="empty-state-card">
+            <p>Cargando ejecuciones...</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CONTENT AREA: ACTIVE RUN DETAILS -->
+      <main class="content-area" id="content-area">
+        <!-- NO RUN SELECTED STATE -->
+        <div class="empty-state" id="no-run-state">
+          <div class="empty-illustration">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          </div>
+          <h2>Bienvenida a AI Java Engineer</h2>
+          <p>Plataforma para automatizar el desarrollo de features en Java/Spring Boot con agentes especializados.</p>
+          <div class="hero-actions">
+            <button class="btn btn-primary btn-lg" onclick="openNewRunModal()">
+              🚀 Iniciar Primera Tarea
+            </button>
+            <button class="btn btn-secondary btn-lg" onclick="triggerSamplePilot()">
+              ⚡ Cargar Tarea de Ejemplo
+            </button>
+          </div>
+        </div>
+
+        <!-- RUN DETAILS VIEW -->
+        <div class="run-view" id="run-view" style="display: none;">
+          <!-- RUN HEADER -->
+          <div class="run-header-card">
+            <div class="run-header-top">
+              <div class="run-id-pill" id="run-id-pill">RUN-XXXXX</div>
+              <div class="run-status-badge" id="run-status-badge">PENDING</div>
+              <div class="run-meta-info">
+                <span id="run-iteration-badge">Iteración: 0</span>
+                <span class="meta-dot">•</span>
+                <span id="run-workspace-badge">Workspace: sandbox</span>
+              </div>
+            </div>
+            <h1 class="run-title" id="run-title">Título de la Tarea</h1>
+            <p class="run-raw-text" id="run-raw-text">Descripción del requerimiento...</p>
+          </div>
+
+          <!-- HUMAN APPROVAL REQUIRED BANNER (HITL) -->
+          <div class="approval-banner" id="approval-banner" style="display: none;">
+            <div class="approval-banner-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+            <div class="approval-banner-content">
+              <h3>Compuerta de Aprobación Humana Requerida (HITL)</h3>
+              <p>Los agentes completaron la codificación, compilación, tests y revisión de seguridad. Revisa los artefactos y autoriza o rechaza la creación del Pull Request.</p>
+              <div class="approval-form">
+                <input type="text" id="approval-reviewer-input" class="form-input" placeholder="Nombre de revisor(a), ej: lead-architect" value="lead-architect">
+                <input type="text" id="approval-feedback-input" class="form-input" placeholder="Comentario opcional...">
+                <button class="btn btn-success" id="btn-approve-run">
+                  ✅ Aprobar y Crear PR
+                </button>
+                <button class="btn btn-danger" id="btn-reject-run">
+                  ❌ Rechazar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- AGENT PIPELINE STEPPER -->
+          <div class="stepper-card">
+            <div class="stepper-header">
+              <div class="stepper-title">Progreso del Pipeline Multi-Agente</div>
+              <div class="stepper-legend">
+                <span class="legend-item"><span class="legend-dot pending"></span> Pendiente</span>
+                <span class="legend-item"><span class="legend-dot running"></span> En Proceso</span>
+                <span class="legend-item"><span class="legend-dot completed"></span> Completado</span>
+              </div>
+            </div>
+
+            <div class="pipeline-stepper" id="pipeline-stepper">
+              <!-- Steps rendered dynamically via JS -->
+            </div>
+          </div>
+
+          <!-- INSPECTION TABS -->
+          <div class="tabs-container">
+            <div class="tabs-nav">
+              <button class="tab-btn active" data-tab="tab-specs">
+                <span class="tab-icon">📋</span> Especificación & Historias
+              </button>
+              <button class="tab-btn" data-tab="tab-architecture">
+                <span class="tab-icon">📐</span> Arquitectura & Endpoints
+              </button>
+              <button class="tab-btn" data-tab="tab-code">
+                <span class="tab-icon">💻</span> Código Java Generado
+                <span class="tab-counter" id="files-counter">0</span>
+              </button>
+              <button class="tab-btn" data-tab="tab-quality">
+                <span class="tab-icon">🛡️</span> Compilación, Tests & Seguridad
+              </button>
+              <button class="tab-btn" data-tab="tab-pr">
+                <span class="tab-icon">🚀</span> Pull Request Git
+              </button>
+              <button class="tab-btn" data-tab="tab-timeline">
+                <span class="tab-icon">⚡</span> Trazas & Checkpoints
+              </button>
+            </div>
+
+            <div class="tabs-content">
+              <!-- TAB 1: PRODUCT SPECS -->
+              <div class="tab-panel active" id="tab-specs">
+                <div class="spec-section">
+                  <h3 class="section-title">Resumen Ejecutivo</h3>
+                  <div class="card card-muted" id="spec-summary">Sin resumen aún.</div>
+                </div>
+
+                <div class="spec-section">
+                  <h3 class="section-title">Historias de Usuario Ágiles</h3>
+                  <div class="stories-grid" id="user-stories-container">
+                    <p class="text-muted">Esperando ejecución del Product Agent...</p>
+                  </div>
+                </div>
+
+                <div class="spec-section">
+                  <h3 class="section-title">Criterios de Aceptación (Gherkin)</h3>
+                  <div class="ac-list" id="acceptance-criteria-container">
+                    <p class="text-muted">Sin criterios definidos todavía.</p>
+                  </div>
+                </div>
+
+                <div class="spec-grid-dual">
+                  <div class="spec-section">
+                    <h3 class="section-title">Reglas de Negocio</h3>
+                    <ul class="rules-list" id="business-rules-list">
+                      <li class="text-muted">Ninguna</li>
+                    </ul>
+                  </div>
+                  <div class="spec-section">
+                    <h3 class="section-title">Casos Límite (Edge Cases)</h3>
+                    <ul class="rules-list" id="edge-cases-list">
+                      <li class="text-muted">Ninguno</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 2: ARCHITECTURE -->
+              <div class="tab-panel" id="tab-architecture">
+                <div class="arch-section">
+                  <h3 class="section-title">Endpoints HTTP Diseñados</h3>
+                  <div class="endpoints-table-container">
+                    <table class="data-table" id="endpoints-table">
+                      <thead>
+                        <tr>
+                          <th>Método</th>
+                          <th>Ruta (Path)</th>
+                          <th>Descripción</th>
+                          <th>Respuesta</th>
+                        </tr>
+                      </thead>
+                      <tbody id="endpoints-table-body">
+                        <tr><td colspan="4" class="text-center text-muted">No hay endpoints definidos.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div class="arch-section">
+                  <h3 class="section-title">Componentes y Patrones Arquitectónicos</h3>
+                  <div class="components-grid" id="components-grid">
+                    <p class="text-muted">Esperando ejecución del Architect Agent...</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 3: CODE VIEWER -->
+              <div class="tab-panel" id="tab-code">
+                <div class="code-viewer-container">
+                  <div class="file-tabs-bar" id="file-tabs-bar">
+                    <!-- File tabs populated via JS -->
+                  </div>
+                  <div class="code-header-bar">
+                    <div class="code-file-path" id="code-file-path">Selecciona un archivo</div>
+                    <button class="btn btn-sm btn-secondary" id="btn-copy-code">Copiar Código</button>
+                  </div>
+                  <div class="code-body">
+                    <pre><code id="code-display" class="java-code">// El código fuente generado aparecerá aquí...</code></pre>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 4: QUALITY, TESTS & SECURITY -->
+              <div class="tab-panel" id="tab-quality">
+                <div class="quality-grid">
+                  <!-- BUILD STATUS CARD -->
+                  <div class="metric-card">
+                    <div class="metric-header">
+                      <span>Compilación Maven</span>
+                      <span class="badge" id="build-status-badge">PENDIENTE</span>
+                    </div>
+                    <div class="metric-body">
+                      <div class="metric-stat" id="build-duration-stat">-- ms</div>
+                      <p class="metric-desc" id="build-error-summary">Sin errores de compilación.</p>
+                      <pre class="stdout-preview" id="build-stdout">// Maven build output...</pre>
+                    </div>
+                  </div>
+
+                  <!-- TEST RESULTS CARD -->
+                  <div class="metric-card">
+                    <div class="metric-header">
+                      <span>Tests Unitarios (JUnit 5)</span>
+                      <span class="badge" id="test-status-badge">PENDIENTE</span>
+                    </div>
+                    <div class="metric-body">
+                      <div class="test-progress-bar">
+                        <div class="test-bar-fill" id="test-bar-fill" style="width: 0%"></div>
+                      </div>
+                      <div class="metric-stat" id="tests-ratio-stat">0 / 0 pasados</div>
+                      <ul class="test-cases-list" id="test-cases-list">
+                        <li class="text-muted">Aún no se han ejecutado pruebas.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <!-- SECURITY SCAN CARD -->
+                  <div class="metric-card">
+                    <div class="metric-header">
+                      <span>Auditoría de Seguridad (SAST)</span>
+                      <span class="badge" id="security-status-badge">PENDIENTE</span>
+                    </div>
+                    <div class="metric-body">
+                      <div class="security-findings-list" id="security-findings-list">
+                        <p class="text-muted">Sin hallazgos de seguridad analizados.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- CODE REVIEW CARD -->
+                  <div class="metric-card">
+                    <div class="metric-header">
+                      <span>Revisión de Código (Peer Review)</span>
+                      <span class="badge" id="review-status-badge">PENDIENTE</span>
+                    </div>
+                    <div class="metric-body">
+                      <div class="review-feedback-box" id="review-feedback-box">
+                        <p class="text-muted">Esperando veredicto del Review Agent...</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 5: PULL REQUEST -->
+              <div class="tab-panel" id="tab-pr">
+                <div class="pr-card" id="pr-card-container">
+                  <div class="pr-header">
+                    <div class="pr-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="18" cy="18" r="3"/>
+                        <circle cx="6" cy="6" r="3"/>
+                        <path d="M13 6h3a2 2 0 012 2v7M6 9v12"/>
+                      </svg>
+                    </div>
+                    <div class="pr-meta">
+                      <h2 id="pr-title">No hay Pull Request generado todavía</h2>
+                      <div class="pr-branches">
+                        <span class="branch-tag" id="pr-branch-name">feat/branch</span>
+                        <span>hacia</span>
+                        <span class="branch-tag base" id="pr-base-branch">main</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="pr-body-markdown" id="pr-body-markdown">
+                    <p class="text-muted">El Pull Request se creará automáticamente una vez que el pipeline complete y pase la compuerta de aprobación.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- TAB 6: TIMELINE & TELEMETRY -->
+              <div class="tab-panel" id="tab-timeline">
+                <div class="timeline-container">
+                  <h3 class="section-title">Checkpoints de Ejecución (SQLite Audit Log)</h3>
+                  <div class="timeline-list" id="timeline-list">
+                    <p class="text-muted">No hay eventos registrados.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- MODAL: NUEVA TAREA -->
+    <div class="modal-overlay" id="new-run-modal">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Nueva Tarea para los Agentes</h2>
+          <button class="modal-close" onclick="closeNewRunModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- PRESETS SELECTOR -->
+          <div class="form-group">
+            <label class="form-label">Plantillas Rápidas (Presets):</label>
+            <div class="presets-row">
+              <button type="button" class="preset-btn active" data-preset="feature">
+                🚀 Nueva Funcionalidad
+              </button>
+              <button type="button" class="preset-btn" data-preset="bugfix">
+                🛠️ Corrección de Bug (Self-healing)
+              </button>
+              <button type="button" class="preset-btn" data-preset="testing">
+                🧪 Suite de Pruebas Unitarias
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="task-title-input">Título de la Tarea:</label>
+            <input type="text" id="task-title-input" class="form-input" value="Customer Order History API" placeholder="Ej: Customer Order History API">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="task-desc-input">Requerimiento en Lenguaje Natural:</label>
+            <textarea id="task-desc-input" class="form-textarea" rows="4" placeholder="Describe qué quieres que haga el agente en tu proyecto Java...">Expose GET /api/v1/customers/{id}/orders with pagination and status filters (PENDING, SHIPPED) using Spring Boot 3 and Java 21.</textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="task-workspace-input">Espacio de Trabajo (Workspace):</label>
+            <input type="text" id="task-workspace-input" class="form-input" value="sandbox" placeholder="Escribe 'sandbox' o la ruta local de tu proyecto Java...">
+            <small class="form-hint">Escribe <strong>sandbox</strong> para probar en un entorno aislado seguro sin tocar tus archivos, o escribe una ruta absoluta a tu proyecto local.</small>
+          </div>
+
+          <div class="form-checkbox-row">
+            <input type="checkbox" id="task-hitl-checkbox" checked>
+            <label for="task-hitl-checkbox">
+              <strong>Activar Compuerta de Aprobación Humana (HITL)</strong>
+              <span>El pipeline pausará antes de hacer el commit final para que revises y apruebes.</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeNewRunModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-submit-task">
+            🚀 Iniciar Tarea Multi-Agente
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
