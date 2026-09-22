@@ -5,9 +5,10 @@
 
 const PIPELINE_STEPS = [
   { id: 'product_node', name: 'Product Agent', icon: '📝', desc: 'Historias & AC' },
-  { id: 'context_node', name: 'Context Indexer', icon: '🔍', desc: 'Escaneo de Código' },
+  { id: 'context_node', name: 'Context Indexer', icon: '🔍', desc: 'Escaneo & RAG' },
   { id: 'architect_node', name: 'Architect Agent', icon: '📐', desc: 'Diseño API' },
   { id: 'coder_node', name: 'Coding Agent', icon: '💻', desc: 'Generación .java' },
+  { id: 'qa_node', name: 'QA Subagent', icon: '🎯', desc: 'Edge Cases & Negatives' },
   { id: 'build_node', name: 'Build & Healing', icon: '⚙️', desc: 'Compilación Maven' },
   { id: 'test_node', name: 'Test Runner', icon: '🧪', desc: 'JUnit 5 Suite' },
   { id: 'security_node', name: 'Security Guard', icon: '🛡️', desc: 'SAST Scan' },
@@ -16,20 +17,22 @@ const PIPELINE_STEPS = [
   { id: 'completed_node', name: 'Git Delivery', icon: '🚀', desc: 'Pull Request' },
 ];
 
+
 const PRESETS = {
   feature: {
-    title: "Customer Order History API",
-    desc: "Expose GET /api/v1/customers/{id}/orders with pagination and status filters (PENDING, SHIPPED) using Spring Boot 3 and Java 21."
+    title: "API de Historial de Pedidos de Clientes",
+    desc: "Construir endpoint GET /api/v1/customers/{id}/orders con paginación y filtros de estado (PENDING, SHIPPED) utilizando Spring Boot 3 y Java 21."
   },
   bugfix: {
-    title: "Fix NullPointerException in CustomerService",
+    title: "Corrección de NullPointerException en CustomerService",
     desc: "En CustomerService, validar que si el cliente está inactivo o no existe se lance una excepción de negocio con código 400 Bad Request en lugar de NullPointerException."
   },
   testing: {
-    title: "JUnit 5 & Mockito Tests for OrderController",
-    desc: "Generar una suite completa de pruebas unitarias con JUnit 5 y Mockito para OrderController cubriendo casos exitosos y validaciones de borde."
+    title: "Pruebas Unitarias con JUnit 5 y Mockito para OrderController",
+    desc: "Generar una suite completa de pruebas unitarias con JUnit 5 y Mockito para OrderController cubriendo casos exitosos, validaciones negativas y casos de borde."
   }
 };
+
 
 let currentRunId = null;
 let pollTimer = null;
@@ -174,10 +177,19 @@ async function loadRunDetails(runId) {
       approvalBanner.style.display = "none";
     }
 
+    // Business Value & ROI Metrics
+    if (run.roi_metrics) {
+      const elHours = document.getElementById("roi-hours-saved");
+      const elSavings = document.getElementById("roi-savings-usd");
+      if (elHours) elHours.textContent = `${run.roi_metrics.dev_hours_saved} hrs`;
+      if (elSavings) elSavings.textContent = `$${run.roi_metrics.savings_usd.toFixed(2)} USD`;
+    }
+
     // Stop polling if completed or failed
     if (["COMPLETED", "FAILED", "SECURITY_BLOCKED"].includes(run.status)) {
       if (pollTimer) clearInterval(pollTimer);
     }
+
 
     // Render Pipeline Stepper
     renderPipelineStepper(run);
@@ -288,10 +300,11 @@ function renderProductSpec(spec) {
       card.innerHTML = `
         <div class="ac-title">${escapeHtml(ac.id)}: ${escapeHtml(ac.scenario || "Escenario")}</div>
         <div class="ac-gherkin">
-          <div><span class="gherkin-kw">DADO (GIVEN):</span> ${escapeHtml(ac.given)}</div>
-          <div><span class="gherkin-kw">CUANDO (WHEN):</span> ${escapeHtml(ac.when)}</div>
-          <div><span class="gherkin-kw">ENTONCES (THEN):</span> ${escapeHtml(ac.then)}</div>
+          <div><span class="gherkin-kw">DADO:</span> ${escapeHtml(ac.given)}</div>
+          <div><span class="gherkin-kw">CUANDO:</span> ${escapeHtml(ac.when)}</div>
+          <div><span class="gherkin-kw">ENTONCES:</span> ${escapeHtml(ac.then)}</div>
         </div>
+
       `;
       acContainer.appendChild(card);
     });

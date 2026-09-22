@@ -48,3 +48,15 @@ class CorporateKnowledgeStore:
             if q_lower.intersection(doc_tags):
                 matched.append(doc)
         return matched
+
+    def get_guidelines_text(self, query_tags: list[str] | None = None) -> str:
+        """Returns formatted corporate guidelines for LLM prompting."""
+        tags = query_tags or ["security", "spring-boot", "jpa", "rest"]
+        docs = self.find_relevant(tags)
+        if not docs:
+            return ""
+        lines = ["=== CORPORATE ARCHITECTURAL & SECURITY STANDARDS ==="]
+        for d in docs:
+            lines.append(f"[{d.id}] {d.title}:\n{d.content}")
+        return "\n\n".join(lines)
+

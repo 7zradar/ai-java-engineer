@@ -7,6 +7,7 @@ from ai_java_engineer.agents.architect.architect_agent import ArchitectAgent
 from ai_java_engineer.agents.coder.coding_agent import CodingAgent
 from ai_java_engineer.agents.debugger.debug_agent import DebugAgent
 from ai_java_engineer.agents.product.product_agent import ProductAgent
+from ai_java_engineer.agents.qa.qa_agent import QAAgent
 from ai_java_engineer.agents.reviewer.review_agent import ReviewAgent
 from ai_java_engineer.agents.security.security_agent import SecurityAgent
 from ai_java_engineer.domain.execution import RunStatus
@@ -16,6 +17,7 @@ from ai_java_engineer.llm.base import ModelProvider
 from ai_java_engineer.orchestration.checkpoints import CheckpointStore
 from ai_java_engineer.orchestration.state import EngineeringState
 from ai_java_engineer.retrieval.context_builder import ContextBuilder
+from ai_java_engineer.retrieval.knowledge_store import CorporateKnowledgeStore
 from ai_java_engineer.retrieval.repository_map import RepositoryScanner
 from ai_java_engineer.tools.filesystem.secure_fs import (
     ReadFileInput,
@@ -41,14 +43,17 @@ class EngineeringOrchestrator:
         self.backend = backend
         self.checkpoint_store = checkpoint_store or CheckpointStore()
         self.require_human_pr_approval = require_human_pr_approval
+        self.knowledge_store = CorporateKnowledgeStore()
 
         # Agents
         self.product_agent = ProductAgent(provider)
         self.architect_agent = ArchitectAgent(provider)
         self.coding_agent = CodingAgent(provider)
+        self.qa_agent = QAAgent(provider)
         self.debug_agent = DebugAgent(provider)
         self.security_agent = SecurityAgent(provider)
         self.review_agent = ReviewAgent(provider)
+
 
     async def run(self, initial_state: EngineeringState) -> EngineeringState:
         """Executes the full state machine deterministically."""
@@ -68,11 +73,14 @@ class EngineeringOrchestrator:
         state["product_spec"] = await self.product_agent.execute(state["requirement"])
         self._checkpoint("product_node", state)
 
-        # 2. Repository Context Node
-        logger.info("Indexing Repository", execution_id=state["execution_id"])
+        # 2. Repository Context Node & Corporate Standards RAG
+        logger.info("Indexing Repository & Loading Corporate Knowledge", execution_id=state["execution_id"])
         state["repo_map"] = RepositoryScanner.scan(ws_root)
         ctx_builder = ContextBuilder(ws_root)
-        state["repository_context"] = ctx_builder.build_context(state["repo_map"])
+        repo_ctx = ctx_builder.build_context(state["repo_map"])
+        guidelines = self.knowledge_store.get_guidelines_text(["security", "spring-boot", "jpa", "rest"])
+        state["corporate_guidelines"] = guidelines
+        state["repository_context"] = f"{repo_ctx}\n\n{guidelines}" if guidelines else repo_ctx
         self._checkpoint("context_node", state)
 
         # 3. Architect Node
@@ -97,7 +105,23 @@ class EngineeringOrchestrator:
 
         self._checkpoint("coder_node", state)
 
-        # 5. Build & Self-Healing Debug Loop
+        # 5. QA Node (Independent Quality Assurance Subagent)
+        logger.info("Executing QA Node", execution_id=state["execution_id"])
+        state["qa_plan"] = await self.qa_agent.execute(
+            state["product_spec"], state["architecture_spec"], state["code_plan"]
+        )
+
+        # Apply QA test plan to filesystem
+        for action in state["qa_plan"].actions:
+            if action.action in ("CREATE", "MODIFY"):
+                fs.write_file(WriteFileInput(path=action.path, content=action.content))
+                if action.path not in state["changed_files"]:
+                    state["changed_files"].append(action.path)
+
+        self._checkpoint("qa_node", state)
+
+        # 6. Build & Self-Healing Debug Loop
+
         while True:
             logger.info("Executing Build Node", iteration=state["iteration"])
             state["build_result"] = await self.backend.run_build(str(ws_root))

@@ -62,48 +62,70 @@ class MockProvider(ModelProvider):
         instance: Any
         if response_model is ProductSpec:
             instance = ProductSpec(
-                title="Customer Order History API",
-                summary="Provide paginated order history endpoint for customers",
+                title="API de Historial de Pedidos de Clientes",
+                summary="Proveer un endpoint REST paginado para consultar el historial de pedidos de clientes con filtros de estado.",
                 user_stories=[
                     UserStory(
                         id="US-001",
-                        title="View past orders",
-                        as_a="Customer",
-                        i_want="to retrieve my order history with status filters",
-                        so_that="I can track past purchases easily",
+                        title="Consultar pedidos anteriores",
+                        as_a="Cliente registrado",
+                        i_want="consultar mi historial de pedidos con filtros por estado (PENDING, SHIPPED)",
+                        so_that="pueda realizar seguimiento a mis compras previas",
                     )
                 ],
                 acceptance_criteria=[
                     AcceptanceCriterion(
                         id="AC-001",
-                        scenario="Retrieve customer orders with valid ID",
-                        given="A customer with existing orders",
-                        when="GET /api/v1/customers/101/orders is invoked",
-                        then="Returns HTTP 200 with list of orders",
-                    )
+                        scenario="Consultar pedidos con ID de cliente válido",
+                        given="Un cliente registrado con pedidos existentes en la base de datos",
+                        when="Se invoca la petición GET /api/v1/customers/101/orders",
+                        then="El sistema responde con código HTTP 200 y la lista paginada de pedidos",
+                    ),
+                    AcceptanceCriterion(
+                        id="AC-002",
+                        scenario="Cliente sin compras registradas",
+                        given="Un cliente registrado que no posee órdenes previas",
+                        when="Se invoca la petición GET /api/v1/customers/102/orders",
+                        then="El sistema responde con código HTTP 200 y una lista vacía",
+                    ),
+                    AcceptanceCriterion(
+                        id="AC-003",
+                        scenario="Identificador de cliente inválido",
+                        given="Un identificador de cliente menor a 1 o malformado",
+                        when="Se invoca la petición GET /api/v1/customers/-1/orders",
+                        then="El sistema responde con código HTTP 400 Bad Request y formato ErrorResponseDTO",
+                    ),
                 ],
-                business_rules=["Only return orders belonging to the authenticated customer ID"],
-                edge_cases=["Customer with zero orders returns empty list with 200 OK"],
-                assumptions=["Spring Boot 3.3+ and Java 21 environment"],
+                business_rules=[
+                    "Solo se deben retornar pedidos pertenecientes al cliente autenticado",
+                    "El tamaño de página por defecto debe ser de 10 registros",
+                    "Todos los errores deben utilizar el formato corporativo ErrorResponseDTO",
+                ],
+                edge_cases=[
+                    "Cliente con cero pedidos retorna lista vacía con HTTP 200 OK",
+                    "Parámetros de paginación inválidos deben retornar HTTP 400 Bad Request",
+                    "Filtro de estado inexistente debe ser rechazado con HTTP 400 Bad Request",
+                ],
+                assumptions=["Entorno de ejecución con Spring Boot 3.3+ y Java 21"],
                 unresolved_questions=[],
             )
         elif response_model is ArchitectureSpec:
             instance = ArchitectureSpec(
-                summary="Add OrderController endpoint and OrderService business logic",
+                summary="Diseño de controlador REST OrderController, capa de servicio OrderService y repositorio Spring Data JPA",
                 packages_to_modify=["com.example.demo.controller", "com.example.demo.service"],
                 components=[
                     ComponentSpec(
                         package="com.example.demo.controller",
                         name="OrderController",
                         component_type="CONTROLLER",
-                        description="REST controller exposing customer order endpoints",
+                        description="Controlador REST que expone los endpoints de pedidos de clientes",
                         dependencies=["OrderService"],
                     ),
                     ComponentSpec(
                         package="com.example.demo.service",
                         name="OrderService",
                         component_type="SERVICE",
-                        description="Business logic handling order filtering",
+                        description="Lógica de negocio para filtrado y paginación de pedidos",
                         dependencies=["OrderRepository"],
                     ),
                 ],
@@ -111,7 +133,7 @@ class MockProvider(ModelProvider):
                     EndpointSpec(
                         method="GET",
                         path="/api/v1/customers/{id}/orders",
-                        description="Fetch paginated order history",
+                        description="Consulta paginada del historial de pedidos",
                         response_dto="OrderResponseDTO",
                         status_code=200,
                     )
@@ -127,10 +149,10 @@ class MockProvider(ModelProvider):
                 decisions=[
                     ArchitectureDecision(
                         id="ADR-001",
-                        title="Use Spring Data JPA derived queries",
-                        context="Need efficient filtering by customer ID",
-                        decision="Implement findByCustomerId in OrderRepository",
-                        consequences="Avoids custom SQL and ensures type safety",
+                        title="Uso de métodos derivados en Spring Data JPA",
+                        context="Se requiere un filtrado eficiente por identificador de cliente",
+                        decision="Implementar findByCustomerId en OrderRepository",
+                        consequences="Garantiza seguridad de tipos y evita consultas SQL manuales propensas a errores",
                     )
                 ],
             )
@@ -166,19 +188,19 @@ class MockProvider(ModelProvider):
                 "}\n"
             )
             instance = CodePlan(
-                summary="Implement OrderController and OrderControllerTest",
+                summary="Implementación de OrderController y suite de pruebas unitarias OrderControllerTest",
                 actions=[
                     FileAction(
                         path="src/main/java/com/example/demo/controller/OrderController.java",
                         action="CREATE",
                         content=java_controller,
-                        description="REST Controller endpoint",
+                        description="Controlador REST para pedidos de clientes",
                     ),
                     FileAction(
                         path="src/test/java/com/example/demo/controller/OrderControllerTest.java",
                         action="CREATE",
                         content=java_test,
-                        description="Unit test verifying 200 OK response",
+                        description="Prueba unitaria verificando respuesta HTTP 200 OK",
                     ),
                 ],
             )
@@ -192,13 +214,15 @@ class MockProvider(ModelProvider):
             instance = ReviewResult(
                 verdict="APPROVED",
                 score=0.95,
-                summary="Implementation satisfies requirements with test coverage",
+                summary="La implementación cumple plenamente con los criterios de aceptación y los estándares de arquitectura Spring Boot",
                 checklist=[
-                    ReviewChecklistItem(name="Acceptance Criteria Covered", passed=True, details="AC-001 verified"),
-                    ReviewChecklistItem(name="Spring Architecture Followed", passed=True, details="Layering conforms"),
+                    ReviewChecklistItem(name="Criterios de Aceptación Cubiertos", passed=True, details="AC-001, AC-002 y AC-003 validados con tests"),
+                    ReviewChecklistItem(name="Arquitectura Spring Boot Respetada", passed=True, details="Separación limpia de capas Controller, Service y Repository"),
+                    ReviewChecklistItem(name="Seguridad y OWASP", passed=True, details="Sin vulnerabilidades de inyección SQL ni credenciales en código"),
                 ],
                 required_changes=[],
             )
+
         else:
             instance = response_model.model_validate({})
 

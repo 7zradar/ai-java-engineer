@@ -122,8 +122,39 @@
             <p class="run-raw-text" id="run-raw-text">Descripción del requerimiento...</p>
           </div>
 
+          <!-- BUSINESS VALUE & ROI IMPACT BANNER -->
+          <div class="roi-banner" id="roi-banner"
+ style="display: flex; gap: 16px; margin-bottom: 16px; padding: 12px 18px; background: linear-gradient(135deg, #0F2537 0%, #1E3A5F 100%); color: white; border-radius: 8px; justify-content: space-between; align-items: center; border-left: 4px solid #38BDF8; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 1.6rem;">💼</span>
+              <div>
+                <strong style="color: #38BDF8; font-size: 0.95rem;">Impacto de Negocio & Demanda Cubierta</strong>
+                <div style="font-size: 0.8rem; color: #94A3B8;">Perfil: Java Developer APIs (Java X) • Célula Híbrida 2+2</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 24px; text-align: right;">
+              <div>
+                <div style="font-size: 0.72rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Horas Dev Ahorradas</div>
+                <strong style="color: #34D399; font-size: 1.15rem;" id="roi-hours-saved">6.0 hrs</strong>
+              </div>
+              <div>
+                <div style="font-size: 0.72rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Valor Facturable Ahorrado</div>
+                <strong style="color: #38BDF8; font-size: 1.15rem;" id="roi-savings-usd">$240.00 USD</strong>
+              </div>
+              <div>
+                <div style="font-size: 0.72rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Pérdida Diaria Evitada</div>
+                <strong style="color: #FBBF24; font-size: 1.15rem;">$320.00 USD / día</strong>
+              </div>
+              <div>
+                <div style="font-size: 0.72rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Margen Bruto Célula</div>
+                <strong style="color: #A7F3D0; font-size: 1.15rem;">69.2%</strong>
+              </div>
+            </div>
+          </div>
+
           <!-- HUMAN APPROVAL REQUIRED BANNER (HITL) -->
           <div class="approval-banner" id="approval-banner" style="display: none;">
+
             <div class="approval-banner-icon">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/>
@@ -399,13 +430,14 @@
 
           <div class="form-group">
             <label class="form-label" for="task-title-input">Título de la Tarea:</label>
-            <input type="text" id="task-title-input" class="form-input" value="Customer Order History API" placeholder="Ej: Customer Order History API">
+            <input type="text" id="task-title-input" class="form-input" value="API de Historial de Pedidos de Clientes" placeholder="Ej: API de Historial de Pedidos de Clientes">
           </div>
 
           <div class="form-group">
             <label class="form-label" for="task-desc-input">Requerimiento en Lenguaje Natural:</label>
-            <textarea id="task-desc-input" class="form-textarea" rows="4" placeholder="Describe qué quieres que haga el agente en tu proyecto Java...">Expose GET /api/v1/customers/{id}/orders with pagination and status filters (PENDING, SHIPPED) using Spring Boot 3 and Java 21.</textarea>
+            <textarea id="task-desc-input" class="form-textarea" rows="4" placeholder="Describe qué quieres que haga el agente en tu proyecto Java...">Construir endpoint GET /api/v1/customers/{id}/orders con paginación y filtros de estado (PENDING, SHIPPED) utilizando Spring Boot 3 y Java 21.</textarea>
           </div>
+
 
           <div class="form-group">
             <label class="form-label" for="task-workspace-input">Espacio de Trabajo (Workspace):</label>

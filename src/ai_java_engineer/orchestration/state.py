@@ -34,11 +34,14 @@ class EngineeringState(TypedDict, total=False):
     # Specifications
     product_spec: ProductSpec | None
     architecture_spec: ArchitectureSpec | None
+    corporate_guidelines: str | None
 
     # Artifacts & Modifications
     code_plan: CodePlan | None
+    qa_plan: CodePlan | None
     changed_files: list[str]
     git_diff: str | None
+
 
     # Verification & Quality Results
     build_result: BuildResult | None

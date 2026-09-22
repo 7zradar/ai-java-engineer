@@ -77,16 +77,17 @@ class GitService:
     ) -> PullRequestPayload:
         """Builds a structured Pull Request body."""
         body = (
-            f"## Automated Feature Implementation\n\n"
-            f"### Requirement Summary\n"
+            f"## Implementación Automatizada de Funcionalidad\n\n"
+            f"### Resumen del Requerimiento\n"
             f"{product_spec.summary}\n\n"
-            f"### User Stories Addressed\n"
+            f"### Historias de Usuario Atendidas\n"
         )
         for us in product_spec.user_stories:
             body += f"- **{us.id}**: {us.title} ({us.as_a} -> {us.i_want})\n"
 
-        body += f"\n### Verification Evidence\n{test_summary}\n"
-        body += "\n---\n*Delivered autonomously by AI Java Engineer platform.*"
+        body += f"\n### Evidencia de Verificación y Pruebas\n{test_summary}\n"
+        body += "\n---\n*Entregado de forma autónoma por la plataforma Fábrica de Agentes (AI Java Engineer).*"
+
 
         return PullRequestPayload(
             title=f"feat: {product_spec.title}",

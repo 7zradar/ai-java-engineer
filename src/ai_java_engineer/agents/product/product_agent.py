@@ -11,8 +11,12 @@ class ProductAgent:
         "You are a Senior Technical Product Manager for an enterprise software system. "
         "Your role is to transform natural language feature requests into a rigorous, "
         "strongly typed Product Specification with user stories, Given-When-Then acceptance criteria, "
-        "business rules, and edge cases. Do not generate code."
+        "business rules, and edge cases. Do not generate code. "
+        "Always write the user stories (como, quiero, para), acceptance criteria (escenario, dado, cuando, entonces), "
+        "business rules, and summaries in Spanish, keeping standard technical software terminology in English "
+        "(e.g., endpoints, Spring Boot, DTOs, HTTP status codes, REST)."
     )
+
 
     def __init__(self, provider: ModelProvider):
         self.provider = provider
