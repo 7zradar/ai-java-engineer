@@ -15,6 +15,7 @@ from ai_java_engineer.execution.local_mock import LocalMockBackend
 from ai_java_engineer.execution.remote_ci import RemoteCiExecutionBackend
 from ai_java_engineer.infrastructure.logging import configure_logging, get_logger
 from ai_java_engineer.infrastructure.settings import get_settings
+from ai_java_engineer.integrations.jira_client import jira_client, JiraIssue
 from ai_java_engineer.llm.providers.gemini_provider import GeminiProvider
 from ai_java_engineer.llm.providers.mock_provider import MockProvider
 from ai_java_engineer.llm.providers.openai_provider import OpenAIProvider
@@ -286,6 +287,113 @@ async def logout(authorization: str | None = Header(None)):
     return {"message": "Sesión cerrada correctamente"}
 
 
+# --------------------------------------------------------------------------
+# Atlassian Jira Integration Endpoints
+# --------------------------------------------------------------------------
+@app.get("/integrations/jira/issues")
+async def list_jira_issues():
+    """Returns issues assigned to Java X or available in the Jira backlog."""
+    issues = jira_client.list_assigned_issues()
+    return [issue.model_dump() for issue in issues]
+
+
+@app.get("/integrations/jira/issues/{issue_key}")
+async def get_jira_issue(issue_key: str):
+    """Retrieves a single Jira issue by key."""
+    issue = jira_client.get_issue(issue_key)
+    if not issue:
+        raise HTTPException(status_code=404, detail=f"Jira ticket {issue_key} no encontrado.")
+    return issue.model_dump()
+
+
+class JiraImportRequest(BaseModel):
+    workspace_path: str | None = None
+    require_human_pr_approval: bool = True
+
+
+@app.post("/integrations/jira/import/{issue_key}")
+async def import_jira_issue(
+    issue_key: str,
+    req: JiraImportRequest,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(None),
+):
+    """Imports a Jira ticket directly into an autonomous multi-agent execution."""
+    if isinstance(authorization, str) and authorization:
+        token = authorization.replace("Bearer ", "").strip()
+        user = ACTIVE_SESSIONS.get(token)
+        if user and "create_task" not in user.get("permissions", []):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Permiso denegado: El rol '{user.get('role_title')}' no tiene autorización para crear tareas.",
+            )
+
+    issue = jira_client.get_issue(issue_key)
+    if not issue:
+        raise HTTPException(status_code=404, detail=f"Jira ticket '{issue_key}' no encontrado.")
+
+    exec_id = f"RUN-{issue.key}-{uuid.uuid4().hex[:6]}"
+    tracer = ExecutionTracer(exec_id)
+    RUN_TRACERS[exec_id] = tracer
+
+    ws_path = req.workspace_path
+    if not ws_path or ws_path.strip().lower() in ("sandbox", "./sandbox_workspace", "default", ""):
+        sandbox_base = Path("./workspaces").resolve()
+        sandbox_base.mkdir(parents=True, exist_ok=True)
+        ws_path = str(sandbox_base / exec_id)
+        Path(ws_path).mkdir(parents=True, exist_ok=True)
+    else:
+        ws_path = str(Path(ws_path).resolve())
+        Path(ws_path).mkdir(parents=True, exist_ok=True)
+
+    requirement = jira_client.convert_to_requirement_spec(issue, ws_path)
+
+    initial_state: EngineeringState = {
+        "execution_id": exec_id,
+        "workspace_path": ws_path,
+        "requirement": requirement,
+        "status": RunStatus.PENDING,
+        "human_approved": False,
+        "jira_key": issue.key,
+        "jira_status": "In Progress",
+    }
+
+    # Transition Jira ticket to In Progress and post start comment
+    jira_client.transition_issue(issue.key, "In Progress")
+    jira_client.add_comment(
+        issue.key,
+        f"🚀 El agente autónomo Java X inició el desarrollo de esta tarea.\n- Ejecución: {exec_id}\n- Workspace: {ws_path}",
+    )
+
+    RUN_STATES[exec_id] = initial_state
+    background_tasks.add_task(
+        _execute_pipeline, exec_id, initial_state, req.require_human_pr_approval
+    )
+
+    return {
+        "execution_id": exec_id,
+        "status": RunStatus.PENDING.value,
+        "jira_key": issue.key,
+        "title": requirement.title,
+        "message": f"Tarea Jira {issue.key} asignada a Java X e iniciada con éxito.",
+    }
+
+
+@app.post("/webhooks/jira")
+async def jira_webhook(payload: dict[str, Any], background_tasks: BackgroundTasks):
+    """Receives Atlassian Jira Automation webhooks and triggers Java X if assigned."""
+    issue = jira_client.process_webhook_event(payload)
+    if not issue:
+        return {"status": "IGNORED", "message": "No valid issue found in webhook payload"}
+
+    assignee_name = str(issue.assignee).lower()
+    if "java x" in assignee_name or "agent" in assignee_name:
+        import_req = JiraImportRequest()
+        return await import_jira_issue(issue.key, import_req, background_tasks, authorization=None)
+
+    return {"status": "SKIPPED", "message": f"Issue not assigned to Java X (assignee: {issue.assignee})"}
+
+
 async def _execute_pipeline(exec_id: str, state: EngineeringState, require_human_approval: bool):
     try:
         provider = get_configured_provider()
@@ -304,8 +412,24 @@ async def _execute_pipeline(exec_id: str, state: EngineeringState, require_human
         final_state = await orchestrator.run(state)
         tracer.end_span(span, status=final_state["status"].value)
         RUN_STATES[exec_id] = final_state
+
+        # Synchronize Jira ticket status if task was imported from Jira
+        j_key = final_state.get("jira_key")
+        if j_key:
+            if final_state.get("status") == RunStatus.WAITING_APPROVAL:
+                jira_client.transition_issue(j_key, "In Review")
+                jira_client.add_comment(
+                    j_key,
+                    "🧑‍💻 Código Java generado, compilado y verificado con JUnit 5.\nEsperando autorización humana (HITL) en el dashboard de ingeniería.",
+                )
+            elif final_state.get("status") == RunStatus.COMPLETED:
+                jira_client.transition_issue(j_key, "Done")
+                jira_client.add_comment(
+                    j_key,
+                    "🚀 Pull Request generado y entregable completado.",
+                )
     except Exception as e:
-        logger.error("Pipeline execution encountered an error", execution_id=exec_id, error=str(e))
+        logger.error(f"Pipeline execution encountered an error for {exec_id}: {e}")
         state["status"] = RunStatus.FAILED
         state["escalation_reason"] = f"Execution error: {str(e)}"
         RUN_STATES[exec_id] = state
@@ -461,6 +585,8 @@ async def get_run(execution_id: str):
         "pr_payload": serialize_helper(state.get("pr_payload")),
         "escalation_reason": state.get("escalation_reason"),
         "human_approved": state.get("human_approved", False),
+        "jira_key": state.get("jira_key"),
+        "jira_status": state.get("jira_status"),
         "timeline": timeline,
         "roi_metrics": roi_metrics,
     }
@@ -497,15 +623,27 @@ async def approve_run(
     if status_str != RunStatus.WAITING_APPROVAL.value:
         raise HTTPException(status_code=400, detail=f"Run is not waiting approval (current: {status_str})")
 
+    j_key = state.get("jira_key")
     if approval.decision.upper() == "APPROVE":
         state["human_approved"] = True
         state["status"] = RunStatus.RUNNING
         state["approved_by"] = f"{approval.reviewer} ({approval.role or 'Lead Architect'})"
+        if j_key:
+            jira_client.transition_issue(j_key, "Ready for QA")
+            jira_client.add_comment(
+                j_key,
+                f"✅ Pull Request aprobado por {approval.reviewer} ({approval.role or 'Lead Architect'}).\nListo para verificación y merge a la rama principal.",
+            )
         background_tasks.add_task(_execute_pipeline, execution_id, state, False)
         return {"execution_id": execution_id, "status": "RESUMED", "message": "Approval granted, resuming PR creation."}
     else:
         state["status"] = RunStatus.FAILED
         state["escalation_reason"] = f"Rejected by reviewer {approval.reviewer}: {approval.feedback or 'No comment'}"
+        if j_key:
+            jira_client.add_comment(
+                j_key,
+                f"❌ Solicitud rechazada por {approval.reviewer}: {approval.feedback or 'Sin comentarios adicionales.'}",
+            )
         checkpoint_store.save_checkpoint(
             execution_id=execution_id,
             node_name="human_rejected",

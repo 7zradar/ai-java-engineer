@@ -43,6 +43,13 @@ class AppSettings(BaseSettings):
     max_debug_iterations: int = Field(default=3)
     max_runtime_seconds: int = Field(default=1800)
 
+    # Atlassian Jira Integration
+    jira_url: str | None = Field(default=None, description="e.g. https://yourcompany.atlassian.net")
+    jira_email: str | None = Field(default=None, description="Jira user email")
+    jira_api_token: str | None = Field(default=None, description="Atlassian API Token")
+    jira_project_key: str = Field(default="JAVA", description="Default project key")
+    jira_agent_assignee: str = Field(default="Java X", description="Assignee name or account ID")
+
 
 _settings: AppSettings | None = None
 

@@ -24,6 +24,8 @@ class EngineeringState(TypedDict, total=False):
     max_iterations: int
     human_approved: bool
     escalation_reason: str | None
+    jira_key: str | None
+    jira_status: str | None
 
     # Workspace & Core Inputs
     workspace_path: str

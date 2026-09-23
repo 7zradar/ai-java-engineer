@@ -66,8 +66,13 @@
             Salir
           </button>
         </div>
-        <button id="btn-show-login" class="btn btn-secondary" style="display: inline-flex;">
-          🔐 Iniciar Sesión
+        <button id="btn-open-jira" class="btn btn-secondary" style="border-color: rgba(56, 189, 248, 0.4); color: #38BDF8;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          ⚡ Bandeja Jira
         </button>
         <button id="btn-new-run" class="btn btn-primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -129,6 +134,9 @@
           <div class="run-header-card">
             <div class="run-header-top">
               <div class="run-id-pill" id="run-id-pill">RUN-XXXXX</div>
+              <div class="jira-ticket-pill" id="run-jira-pill" style="display: none;">
+                <span>🎫</span> <span id="run-jira-key">PAY-104</span>
+              </div>
               <div class="run-status-badge" id="run-status-badge">PENDING</div>
               <div class="run-meta-info">
                 <span id="run-iteration-badge">Iteración: 0</span>
@@ -562,6 +570,49 @@
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: BANDEJA DE JIRA (BACKLOG JAVA X) -->
+    <div class="modal-overlay" id="jira-modal">
+      <div class="modal-card modal-jira-card">
+        <div class="modal-header">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="brand-icon" style="background: linear-gradient(135deg, #0052CC 0%, #2684FF 100%); width: 34px; height: 34px; border-radius: 8px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.53 2c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V2h-10.48zm-4.78 4.78c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35V6.78H6.75zm-4.75 4.79c0 2.4 1.97 4.35 4.35 4.35h1.78v1.74c0 2.4 1.97 4.35 4.35 4.35v-10.44H2z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 style="font-size: 1.2rem; margin: 0;">Bandeja Jira Atlassian</h2>
+              <div style="font-size: 0.78rem; color: var(--text-secondary);">Tickets y Responsabilidades Asignadas al Agente Sintético <strong>Java X</strong></div>
+            </div>
+          </div>
+          <button class="modal-close" onclick="closeJiraModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Manual Key Importer Bar -->
+          <div class="jira-search-bar" style="margin-bottom: 18px; display: flex; gap: 8px;">
+            <input type="text" id="jira-manual-key-input" class="form-input" placeholder="Ingresa clave de ticket Jira (ej: PAY-104, AUTH-205, ORD-301)...">
+            <button type="button" class="btn btn-secondary" onclick="importJiraByKey()" style="white-space: nowrap;">
+              📥 Importar y Ejecutar
+            </button>
+          </div>
+
+          <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span>Tickets Disponibles en Backlog (Asignados a Java X):</span>
+            <button class="btn btn-sm btn-secondary" onclick="loadJiraIssues()" title="Refrescar backlog Jira">🔄 Refrescar</button>
+          </div>
+
+          <div class="jira-issues-grid" id="jira-issues-container">
+            <p class="text-muted text-center" style="padding: 20px;">Cargando tickets de Jira...</p>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeJiraModal()">Cerrar</button>
         </div>
       </div>
     </div>

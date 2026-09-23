@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initModals();
   initActions();
   initAuth();
+  initJira();
   fetchHealth();
   fetchRuns();
   
@@ -166,6 +167,16 @@ async function loadRunDetails(runId) {
     const req = run.requirement || {};
     document.getElementById("run-title").textContent = req.title || run.execution_id;
     document.getElementById("run-raw-text").textContent = req.raw_text || "Sin descripción.";
+
+    // Jira pill
+    const jiraPill = document.getElementById("run-jira-pill");
+    const jiraKeyEl = document.getElementById("run-jira-key");
+    if (run.jira_key) {
+      if (jiraPill) jiraPill.style.display = "inline-flex";
+      if (jiraKeyEl) jiraKeyEl.textContent = `JIRA: ${run.jira_key}`;
+    } else {
+      if (jiraPill) jiraPill.style.display = "none";
+    }
 
     // Status badge
     const badgeEl = document.getElementById("run-status-badge");
@@ -1039,4 +1050,122 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+
+/* ==========================================================================
+   JIRA INTEGRATION CONTROLLER
+   ========================================================================== */
+function initJira() {
+  const btnOpenJira = document.getElementById("btn-open-jira");
+  if (btnOpenJira) {
+    btnOpenJira.onclick = openJiraModal;
+  }
+}
+
+function openJiraModal() {
+  const modal = document.getElementById("jira-modal");
+  if (modal) {
+    modal.classList.add("active");
+    loadJiraIssues();
+  }
+}
+
+function closeJiraModal() {
+  const modal = document.getElementById("jira-modal");
+  if (modal) {
+    modal.classList.remove("active");
+  }
+}
+
+async function loadJiraIssues() {
+  const container = document.getElementById("jira-issues-container");
+  if (!container) return;
+
+  container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">Cargando tickets de Jira...</p>';
+
+  try {
+    const res = await fetch("/integrations/jira/issues");
+    if (!res.ok) throw new Error("Error al consultar backlog de Jira");
+    const issues = await res.json();
+
+    if (!issues || issues.length === 0) {
+      container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">No hay tickets asignados a Java X en este momento.</p>';
+      return;
+    }
+
+    container.innerHTML = "";
+    issues.forEach(issue => {
+      const card = document.createElement("div");
+      card.className = "jira-card";
+
+      let priorityClass = "jira-priority-medium";
+      if (issue.priority === "Highest") priorityClass = "jira-priority-highest";
+      else if (issue.priority === "High") priorityClass = "jira-priority-high";
+
+      const acCount = (issue.acceptance_criteria && issue.acceptance_criteria.length) || 0;
+
+      card.innerHTML = `
+        <div class="jira-card-header">
+          <div class="jira-card-tags">
+            <span class="jira-key-badge">${escapeHtml(issue.key)}</span>
+            <span class="jira-type-badge">${escapeHtml(issue.issue_type)}</span>
+            <span class="jira-priority-badge ${priorityClass}">Prioridad: ${escapeHtml(issue.priority)}</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(issue.status)}</span>
+        </div>
+        <div class="jira-card-title">${escapeHtml(issue.summary)}</div>
+        <div class="jira-card-desc">${escapeHtml(issue.description)}</div>
+        <div class="jira-card-footer">
+          <div class="jira-assignee-info">
+            <span>👤 Asignado: <strong>${escapeHtml(issue.assignee)}</strong></span>
+            <span>•</span>
+            <span>📋 ${acCount} criterios Gherkin</span>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="importJiraByKey('${escapeHtml(issue.key)}')">
+            🚀 Asignar a Java X y Ejecutar
+          </button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  } catch (err) {
+    container.innerHTML = `<p class="text-danger text-center" style="padding: 20px;">Fallo al conectar con Jira: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+async function importJiraByKey(customKey) {
+  const inputEl = document.getElementById("jira-manual-key-input");
+  const key = (customKey || (inputEl ? inputEl.value : "")).trim().toUpperCase();
+
+  if (!key) {
+    alert("Por favor ingresa una clave de ticket Jira válida (ej: PAY-104).");
+    return;
+  }
+
+  const headers = { "Content-Type": "application/json" };
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
+  try {
+    const res = await fetch(`/integrations/jira/import/${key}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        workspace_path: "sandbox",
+        require_human_pr_approval: true
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Error al importar el ticket");
+    }
+
+    const data = await res.json();
+    closeJiraModal();
+    await fetchRuns();
+    selectRun(data.execution_id);
+  } catch (err) {
+    alert("Error al importar ticket de Jira: " + err.message);
+  }
+}
+
 

@@ -40,8 +40,36 @@ def configure_logging(log_level: str = "INFO", json_format: bool = False) -> Non
         )
 
 
+class StructuredLoggerAdapter:
+    """Fallback adapter for standard logging allowing key-value kwargs like structlog."""
+
+    def __init__(self, logger: logging.Logger):
+        self._logger = logger
+
+    def _format_msg(self, msg: str, kwargs: dict[str, Any]) -> str:
+        if kwargs:
+            extra = " ".join(f"{k}={v}" for k, v in kwargs.items())
+            return f"{msg} | {extra}"
+        return msg
+
+    def info(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self._logger.info(self._format_msg(msg, kwargs), *args)
+
+    def warning(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self._logger.warning(self._format_msg(msg, kwargs), *args)
+
+    def error(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self._logger.error(self._format_msg(msg, kwargs), *args)
+
+    def debug(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self._logger.debug(self._format_msg(msg, kwargs), *args)
+
+    def critical(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self._logger.critical(self._format_msg(msg, kwargs), *args)
+
+
 def get_logger(name: str) -> Any:
-    """Returns a structured logger if available, otherwise standard logging logger."""
+    """Returns a structured logger if available, otherwise wrapped standard logger."""
     if HAS_STRUCTLOG:
         return structlog.get_logger(name)
-    return logging.getLogger(name)
+    return StructuredLoggerAdapter(logging.getLogger(name))

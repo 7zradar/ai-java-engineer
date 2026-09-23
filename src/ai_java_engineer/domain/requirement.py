@@ -29,6 +29,8 @@ class RequirementSpec(BaseModel):
     target_repository: str
     branch_base: str = "main"
     constraints: list[str] = Field(default_factory=list)
+    jira_key: str | None = None
+    jira_url: str | None = None
 
 
 class ProductSpec(BaseModel):
