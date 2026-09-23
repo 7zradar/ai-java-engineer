@@ -51,6 +51,24 @@
           </svg>
           Swagger API
         </a>
+        <div class="user-profile-tag" id="user-profile-tag" style="display: none;">
+          <span class="user-avatar" id="nav-user-avatar">👑</span>
+          <div class="user-info-text">
+            <span class="user-name" id="nav-user-name">Administrador</span>
+            <span class="user-role" id="nav-user-role">Lead Architect</span>
+          </div>
+          <button id="btn-logout" class="btn btn-sm btn-outline-danger" title="Cerrar Sesión">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Salir
+          </button>
+        </div>
+        <button id="btn-show-login" class="btn btn-secondary" style="display: inline-flex;">
+          🔐 Iniciar Sesión
+        </button>
         <button id="btn-new-run" class="btn btn-primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 5v14M5 12h14"/>
@@ -459,6 +477,91 @@
           <button type="button" class="btn btn-primary" id="btn-submit-task">
             🚀 Iniciar Tarea Multi-Agente
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: INICIO DE SESIÓN Y ROLES -->
+    <div class="modal-overlay" id="login-modal">
+      <div class="modal-card modal-login-card">
+        <div class="modal-header">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="brand-icon" style="width: 32px; height: 32px; font-size: 1.1rem;">🔐</div>
+            <div>
+              <h2 style="font-size: 1.2rem; margin: 0;">Iniciar Sesión</h2>
+              <div style="font-size: 0.78rem; color: var(--text-secondary);">Fábrica de Agentes Java X • Célula Híbrida</div>
+            </div>
+          </div>
+          <button class="modal-close" id="btn-close-login" onclick="closeLoginModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div id="login-error-msg" class="login-alert-error" style="display: none;">
+            ⚠️ Usuario o contraseña incorrectos.
+          </div>
+
+          <!-- Quick Access Profile Selection -->
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label class="form-label" style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 8px;">
+              ⚡ Acceso Rápido por Perfil (Demostración Ejecutiva):
+            </label>
+            <div class="role-quick-grid">
+              <button type="button" class="role-pill-btn active" data-user="admin" data-pwd="admin">
+                <span class="role-pill-icon">👑</span>
+                <div class="role-pill-text">
+                  <strong>Admin / Lead Architect</strong>
+                  <small>admin / admin • Aprobación HITL & Control Total</small>
+                </div>
+              </button>
+              <button type="button" class="role-pill-btn" data-user="diego" data-pwd="diego123">
+                <span class="role-pill-icon">🚀</span>
+                <div class="role-pill-text">
+                  <strong>Diego Del Carpio</strong>
+                  <small>diego / diego123 • Delivery Manager & Aprobador</small>
+                </div>
+              </button>
+              <button type="button" class="role-pill-btn" data-user="lorena" data-pwd="lorena123">
+                <span class="role-pill-icon">💼</span>
+                <div class="role-pill-text">
+                  <strong>Lorena</strong>
+                  <small>lorena / lorena123 • Directora Operaciones (ROI & Demanda)</small>
+                </div>
+              </button>
+              <button type="button" class="role-pill-btn" data-user="dev" data-pwd="dev123">
+                <span class="role-pill-icon">💻</span>
+                <div class="role-pill-text">
+                  <strong>Senior Java Developer</strong>
+                  <small>dev / dev123 • Creación de Tareas & Testing</small>
+                </div>
+              </button>
+              <button type="button" class="role-pill-btn" data-user="auditor" data-pwd="auditor123">
+                <span class="role-pill-icon">🛡️</span>
+                <div class="role-pill-text">
+                  <strong>Auditor de Seguridad</strong>
+                  <small>auditor / auditor123 • SAST, OWASP & Trazabilidad</small>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <form id="login-form" onsubmit="event.preventDefault(); submitLogin();">
+            <div class="form-group">
+              <label class="form-label" for="login-username">Usuario:</label>
+              <input type="text" id="login-username" class="form-input" value="admin" placeholder="Ingresa usuario (ej: admin)" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="login-password">Contraseña:</label>
+              <input type="password" id="login-password" class="form-input" value="admin" placeholder="Ingresa contraseña" required>
+            </div>
+
+            <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+              <button type="button" class="btn btn-secondary" onclick="closeLoginModal()">Cancelar</button>
+              <button type="submit" class="btn btn-primary" id="btn-submit-login" style="padding: 10px 24px;">
+                🚀 Ingresar a la Plataforma
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

@@ -38,6 +38,8 @@ let currentRunId = null;
 let pollTimer = null;
 let activeFileTab = null;
 let cachedRunData = null;
+let currentUser = null;
+let authToken = localStorage.getItem("ai_java_token") || null;
 
 // Initialize when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
@@ -45,6 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initPresets();
   initModals();
   initActions();
+  initAuth();
   fetchHealth();
   fetchRuns();
   
@@ -173,6 +176,7 @@ async function loadRunDetails(runId) {
     const approvalBanner = document.getElementById("approval-banner");
     if (run.status === "WAITING_APPROVAL") {
       approvalBanner.style.display = "flex";
+      updateApprovalBannerForUser();
     } else {
       approvalBanner.style.display = "none";
     }
@@ -575,24 +579,35 @@ function initActions() {
   if (btnApprove) {
     btnApprove.onclick = async () => {
       if (!currentRunId) return;
-      const reviewer = document.getElementById("approval-reviewer-input").value || "lead-architect";
+      const reviewer = document.getElementById("approval-reviewer-input").value || (currentUser ? currentUser.display_name : "lead-architect");
       const feedback = document.getElementById("approval-feedback-input").value;
 
       try {
         btnApprove.disabled = true;
         btnApprove.textContent = "Aprobando...";
 
+        const headers = { "Content-Type": "application/json" };
+        if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
         const res = await fetch(`/runs/${currentRunId}/approve`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reviewer, decision: "APPROVE", feedback })
+          headers,
+          body: JSON.stringify({
+            reviewer,
+            decision: "APPROVE",
+            feedback,
+            role: currentUser ? currentUser.role_title : "Lead Architect"
+          })
         });
 
-        if (!res.ok) throw new Error("Error en aprobación");
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || "Error en aprobación");
+        }
         // Resume polling
         selectRun(currentRunId);
       } catch (err) {
-        alert("Error al aprobar: " + err.message);
+        alert(err.message);
       } finally {
         btnApprove.disabled = false;
         btnApprove.textContent = "✅ Aprobar y Crear PR";
@@ -603,22 +618,33 @@ function initActions() {
   if (btnReject) {
     btnReject.onclick = async () => {
       if (!currentRunId) return;
-      const reviewer = document.getElementById("approval-reviewer-input").value || "lead-architect";
+      const reviewer = document.getElementById("approval-reviewer-input").value || (currentUser ? currentUser.display_name : "lead-architect");
       const feedback = document.getElementById("approval-feedback-input").value || "Rechazado por el usuario";
 
       if (!confirm("¿Segura que deseas rechazar este Pull Request?")) return;
 
       try {
         btnReject.disabled = true;
+        const headers = { "Content-Type": "application/json" };
+        if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
         const res = await fetch(`/runs/${currentRunId}/approve`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reviewer, decision: "REJECT", feedback })
+          headers,
+          body: JSON.stringify({
+            reviewer,
+            decision: "REJECT",
+            feedback,
+            role: currentUser ? currentUser.role_title : "Lead Architect"
+          })
         });
-        if (!res.ok) throw new Error("Error en rechazo");
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || "Error en rechazo");
+        }
         selectRun(currentRunId);
       } catch (err) {
-        alert("Error al rechazar: " + err.message);
+        alert(err.message);
       } finally {
         btnReject.disabled = false;
       }
@@ -704,9 +730,12 @@ function initModals() {
       submitBtn.textContent = "Iniciando Agentes...";
 
       try {
+        const headers = { "Content-Type": "application/json" };
+        if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
         const res = await fetch("/runs", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             title,
             requirement_text,
@@ -715,7 +744,10 @@ function initModals() {
           })
         });
 
-        if (!res.ok) throw new Error("Error al crear la tarea");
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || "Error al crear la tarea");
+        }
         const data = await res.json();
 
         closeNewRunModal();
@@ -741,6 +773,240 @@ function closeNewRunModal() {
 
 function triggerSamplePilot() {
   openNewRunModal();
+}
+
+/* ==========================================================================
+   AUTHENTICATION & RBAC CONTROLLER
+   ========================================================================== */
+function initAuth() {
+  const showLoginBtn = document.getElementById("btn-show-login");
+  if (showLoginBtn) {
+    showLoginBtn.onclick = openLoginModal;
+  }
+
+  const logoutBtn = document.getElementById("btn-logout");
+  if (logoutBtn) {
+    logoutBtn.onclick = logout;
+  }
+
+  // Quick profile buttons in login modal
+  const roleButtons = document.querySelectorAll(".role-pill-btn");
+  roleButtons.forEach(btn => {
+    btn.onclick = () => {
+      roleButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      const u = btn.getAttribute("data-user");
+      const p = btn.getAttribute("data-pwd");
+      const uInput = document.getElementById("login-username");
+      const pInput = document.getElementById("login-password");
+      if (uInput) uInput.value = u;
+      if (pInput) pInput.value = p;
+    };
+  });
+
+  // Verify existing session if token exists
+  if (authToken) {
+    verifySession();
+  } else {
+    const savedUser = localStorage.getItem("ai_java_user");
+    if (savedUser) {
+      try {
+        currentUser = JSON.parse(savedUser);
+        applyUserSession(currentUser);
+      } catch (e) {
+        openLoginModal();
+      }
+    } else {
+      // Default to auto-login as admin for immediate usability
+      submitLogin("admin", "admin", true);
+    }
+  }
+}
+
+async function verifySession() {
+  try {
+    const res = await fetch("/auth/me", {
+      headers: { "Authorization": `Bearer ${authToken}` }
+    });
+    if (res.ok) {
+      currentUser = await res.json();
+      localStorage.setItem("ai_java_user", JSON.stringify(currentUser));
+      applyUserSession(currentUser);
+    } else {
+      localStorage.removeItem("ai_java_token");
+      localStorage.removeItem("ai_java_user");
+      authToken = null;
+      currentUser = null;
+      openLoginModal();
+    }
+  } catch (err) {
+    console.warn("Could not verify session:", err);
+  }
+}
+
+function openLoginModal() {
+  const modal = document.getElementById("login-modal");
+  if (modal) {
+    modal.classList.add("active");
+    const errorEl = document.getElementById("login-error-msg");
+    if (errorEl) errorEl.style.display = "none";
+  }
+}
+
+function closeLoginModal() {
+  const modal = document.getElementById("login-modal");
+  if (modal) modal.classList.remove("active");
+}
+
+async function submitLogin(customUser, customPwd, isSilent = false) {
+  const username = customUser || document.getElementById("login-username")?.value.trim();
+  const password = customPwd || document.getElementById("login-password")?.value.trim();
+  const errorEl = document.getElementById("login-error-msg");
+
+  if (!username || !password) {
+    if (errorEl) {
+      errorEl.textContent = "⚠️ Por favor ingresa usuario y contraseña.";
+      errorEl.style.display = "block";
+    }
+    return;
+  }
+
+  const submitBtn = document.getElementById("btn-submit-login");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Verificando...";
+  }
+
+  try {
+    const res = await fetch("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Credenciales incorrectas.");
+    }
+
+    const data = await res.json();
+    authToken = data.token;
+    currentUser = data.user;
+    localStorage.setItem("ai_java_token", authToken);
+    localStorage.setItem("ai_java_user", JSON.stringify(currentUser));
+
+    applyUserSession(currentUser);
+    closeLoginModal();
+  } catch (err) {
+    if (!isSilent) {
+      if (errorEl) {
+        errorEl.textContent = `⚠️ ${err.message}`;
+        errorEl.style.display = "block";
+      } else {
+        alert(err.message);
+      }
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "🚀 Ingresar a la Plataforma";
+    }
+  }
+}
+
+async function logout() {
+  if (authToken) {
+    fetch("/auth/logout", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${authToken}` }
+    }).catch(() => {});
+  }
+  localStorage.removeItem("ai_java_token");
+  localStorage.removeItem("ai_java_user");
+  authToken = null;
+  currentUser = null;
+
+  const profileTag = document.getElementById("user-profile-tag");
+  if (profileTag) profileTag.style.display = "none";
+  const loginBtn = document.getElementById("btn-show-login");
+  if (loginBtn) loginBtn.style.display = "inline-flex";
+
+  openLoginModal();
+}
+
+function applyUserSession(user) {
+  if (!user) return;
+
+  const profileTag = document.getElementById("user-profile-tag");
+  const loginBtn = document.getElementById("btn-show-login");
+  if (profileTag) profileTag.style.display = "inline-flex";
+  if (loginBtn) loginBtn.style.display = "none";
+
+  const avatarEl = document.getElementById("nav-user-avatar");
+  const nameEl = document.getElementById("nav-user-name");
+  const roleEl = document.getElementById("nav-user-role");
+
+  if (avatarEl) avatarEl.textContent = user.avatar || "👤";
+  if (nameEl) nameEl.textContent = user.display_name || user.username;
+  if (roleEl) roleEl.textContent = user.role_title || user.role;
+
+  // Reviewer input pre-fill
+  const reviewerInput = document.getElementById("approval-reviewer-input");
+  if (reviewerInput) {
+    reviewerInput.value = `${user.display_name} (${user.role_title})`;
+  }
+
+  // Update permissions for active run
+  updateApprovalBannerForUser();
+
+  // Task creation permission
+  const btnNewRun = document.getElementById("btn-new-run");
+  if (btnNewRun) {
+    const canCreate = !user.permissions || user.permissions.includes("create_task");
+    btnNewRun.disabled = !canCreate;
+    btnNewRun.title = canCreate ? "Crear nueva tarea" : "Tu rol actual no tiene permisos para crear tareas.";
+    btnNewRun.style.opacity = canCreate ? "1" : "0.5";
+  }
+
+  // Highlight ROI banner for operations director (Lorena)
+  const roiBanner = document.getElementById("roi-banner");
+  if (roiBanner) {
+    if (user.role === "operations_director") {
+      roiBanner.style.border = "2px solid #38BDF8";
+      roiBanner.style.boxShadow = "0 0 20px rgba(56, 189, 248, 0.35)";
+    } else {
+      roiBanner.style.border = "none";
+      roiBanner.style.borderLeft = "4px solid #38BDF8";
+      roiBanner.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1)";
+    }
+  }
+}
+
+function updateApprovalBannerForUser() {
+  const btnApprove = document.getElementById("btn-approve-run");
+  const btnReject = document.getElementById("btn-reject-run");
+  const bannerContent = document.querySelector(".approval-banner-content");
+  if (!btnApprove || !btnReject) return;
+
+  const canApprove = currentUser ? currentUser.permissions?.includes("approve_pr") : true;
+
+  btnApprove.disabled = !canApprove;
+  btnReject.disabled = !canApprove;
+  btnApprove.style.opacity = canApprove ? "1" : "0.4";
+  btnReject.style.opacity = canApprove ? "1" : "0.4";
+
+  // Existing notice cleanup
+  const existingNotice = document.getElementById("approval-permission-notice");
+  if (existingNotice) existingNotice.remove();
+
+  if (!canApprove && bannerContent) {
+    const notice = document.createElement("div");
+    notice.id = "approval-permission-notice";
+    notice.className = "permission-blocked-notice";
+    notice.innerHTML = `🔒 <em>Aprobación restringida:</em> Tu rol actual (<strong>${currentUser ? currentUser.role_title : "Invitado"}</strong>) no cuenta con autorización para autorizar Pull Requests a producción. Requiere rol <strong>Lead Architect</strong> o <strong>Delivery Manager</strong>.`;
+    bannerContent.appendChild(notice);
+  }
 }
 
 /* ==========================================================================
@@ -773,3 +1039,4 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+

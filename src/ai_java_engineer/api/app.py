@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 import uuid
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -76,6 +76,96 @@ def serialize_helper(obj: Any) -> Any:
     return obj
 
 
+# User Catalog and Role Definitions for Agent Factory
+USERS_CATALOG: dict[str, dict[str, Any]] = {
+    "admin": {
+        "password": "admin",
+        "allowed_passwords": ["admin", "admin123"],
+        "display_name": "Administrador General",
+        "role": "lead_architect",
+        "role_title": "Lead Architect & Tech Lead",
+        "avatar": "👑",
+        "permissions": [
+            "create_task",
+            "approve_pr",
+            "reject_pr",
+            "view_code",
+            "view_roi",
+            "view_security",
+            "admin_config",
+        ],
+        "description": "Supervisión técnica, arquitectura, gobernanza y aprobación final de Pull Requests a main/producción.",
+    },
+    "diego": {
+        "password": "diego",
+        "allowed_passwords": ["diego", "diego123"],
+        "display_name": "Diego Del Carpio",
+        "role": "delivery_manager",
+        "role_title": "Delivery Manager & Tech Lead",
+        "avatar": "🚀",
+        "permissions": [
+            "create_task",
+            "approve_pr",
+            "reject_pr",
+            "view_code",
+            "view_roi",
+            "view_security",
+        ],
+        "description": "Gestión de células híbridas, priorización de backlog y aprobación de entregables.",
+    },
+    "lorena": {
+        "password": "lorena",
+        "allowed_passwords": ["lorena", "lorena123"],
+        "display_name": "Lorena",
+        "role": "operations_director",
+        "role_title": "Directora de Operaciones & Talento",
+        "avatar": "💼",
+        "permissions": [
+            "view_code",
+            "view_roi",
+            "view_security",
+            "view_dashboard",
+        ],
+        "description": "Supervisión ejecutiva de demanda cubierta, ROI financiero y métricas de pods.",
+    },
+    "dev": {
+        "password": "dev",
+        "allowed_passwords": ["dev", "dev123"],
+        "display_name": "Senior Java Developer",
+        "role": "senior_dev",
+        "role_title": "Senior Java Developer (Pod Member)",
+        "avatar": "💻",
+        "permissions": [
+            "create_task",
+            "view_code",
+            "view_security",
+        ],
+        "description": "Creación de requerimientos para el agente Java X, inspección de código y testing.",
+    },
+    "auditor": {
+        "password": "auditor",
+        "allowed_passwords": ["auditor", "auditor123"],
+        "display_name": "Auditor de Seguridad",
+        "role": "security_auditor",
+        "role_title": "Auditor de Seguridad & Compliance",
+        "avatar": "🛡️",
+        "permissions": [
+            "view_security",
+            "view_code",
+            "view_audit_trail",
+        ],
+        "description": "Auditoría de vulnerabilidades SAST, validación OWASP Top 10 y trazabilidad SQLite.",
+    },
+}
+
+ACTIVE_SESSIONS: dict[str, dict[str, Any]] = {}
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(..., example="admin")
+    password: str = Field(..., example="admin")
+
+
 class CreateRunRequest(BaseModel):
     title: str = Field(..., example="Customer Order History API")
     requirement_text: str = Field(..., example="Create GET /api/v1/customers/{id}/orders endpoint")
@@ -88,6 +178,7 @@ class ApproveRunRequest(BaseModel):
     reviewer: str = Field(..., example="lead-architect")
     decision: str = Field(default="APPROVE", example="APPROVE")
     feedback: str | None = None
+    role: str | None = None
 
 
 @app.get("/", include_in_schema=False)
@@ -110,6 +201,89 @@ async def health():
         "execution_backend": settings.execution_backend,
         "version": "0.1.0",
     }
+
+
+@app.post("/auth/login")
+async def login(req: LoginRequest):
+    """Authenticate user with username and password (e.g. admin/admin)."""
+    username_clean = req.username.strip().lower()
+    user_record = USERS_CATALOG.get(username_clean)
+    if not user_record:
+        for u_key, u_val in USERS_CATALOG.items():
+            if u_key.lower() == username_clean:
+                user_record = u_val
+                username_clean = u_key
+                break
+
+    if not user_record:
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+
+    allowed_pwds = user_record.get("allowed_passwords") or [user_record["password"]]
+    if req.password not in allowed_pwds and req.password != user_record["password"]:
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+
+    token = f"sess_{uuid.uuid4().hex}"
+    user_info = {
+        "username": username_clean,
+        "display_name": user_record["display_name"],
+        "role": user_record["role"],
+        "role_title": user_record["role_title"],
+        "avatar": user_record["avatar"],
+        "permissions": user_record["permissions"],
+        "description": user_record.get("description", ""),
+    }
+    ACTIVE_SESSIONS[token] = user_info
+    return {"token": token, "user": user_info}
+
+
+@app.get("/auth/me")
+async def get_current_user(authorization: str | None = Header(None)):
+    """Retrieve details of the currently authenticated user."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Sesión no iniciada")
+    token = authorization.replace("Bearer ", "").strip()
+    user = ACTIVE_SESSIONS.get(token)
+    if not user:
+        if token in ("demo-admin", "admin-token"):
+            admin_rec = USERS_CATALOG["admin"]
+            return {
+                "username": "admin",
+                "display_name": admin_rec["display_name"],
+                "role": admin_rec["role"],
+                "role_title": admin_rec["role_title"],
+                "avatar": admin_rec["avatar"],
+                "permissions": admin_rec["permissions"],
+                "description": admin_rec.get("description", ""),
+            }
+        raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
+    return user
+
+
+@app.get("/auth/roles")
+async def list_available_roles():
+    """Returns available roles and demo credentials for the login screen."""
+    return [
+        {
+            "username": k,
+            "display_name": v["display_name"],
+            "role": v["role"],
+            "role_title": v["role_title"],
+            "avatar": v["avatar"],
+            "permissions": v["permissions"],
+            "description": v["description"],
+            "demo_password": v["password"],
+        }
+        for k, v in USERS_CATALOG.items()
+    ]
+
+
+@app.post("/auth/logout")
+async def logout(authorization: str | None = Header(None)):
+    """Close active session."""
+    if authorization:
+        token = authorization.replace("Bearer ", "").strip()
+        ACTIVE_SESSIONS.pop(token, None)
+    return {"message": "Sesión cerrada correctamente"}
 
 
 async def _execute_pipeline(exec_id: str, state: EngineeringState, require_human_approval: bool):
@@ -167,7 +341,20 @@ async def list_runs():
 
 
 @app.post("/runs")
-async def create_run(req: CreateRunRequest, background_tasks: BackgroundTasks):
+async def create_run(
+    req: CreateRunRequest,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(None),
+):
+    if authorization:
+        token = authorization.replace("Bearer ", "").strip()
+        user = ACTIVE_SESSIONS.get(token)
+        if user and "create_task" not in user.get("permissions", []):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Permiso denegado: El rol '{user.get('role_title')}' no tiene autorización para crear nuevas tareas.",
+            )
+
     exec_id = f"RUN-{uuid.uuid4().hex[:8]}"
     tracer = ExecutionTracer(exec_id)
     RUN_TRACERS[exec_id] = tracer
@@ -285,7 +472,17 @@ async def approve_run(
     execution_id: str,
     approval: ApproveRunRequest,
     background_tasks: BackgroundTasks,
+    authorization: str | None = Header(None),
 ):
+    if authorization:
+        token = authorization.replace("Bearer ", "").strip()
+        user = ACTIVE_SESSIONS.get(token)
+        if user and "approve_pr" not in user.get("permissions", []):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Permiso denegado: El rol '{user.get('role_title')}' no tiene autorización para aprobar o rechazar Pull Requests a producción.",
+            )
+
     state = RUN_STATES.get(execution_id)
     if not state:
         loaded = checkpoint_store.load_latest_checkpoint(execution_id)
@@ -303,6 +500,7 @@ async def approve_run(
     if approval.decision.upper() == "APPROVE":
         state["human_approved"] = True
         state["status"] = RunStatus.RUNNING
+        state["approved_by"] = f"{approval.reviewer} ({approval.role or 'Lead Architect'})"
         background_tasks.add_task(_execute_pipeline, execution_id, state, False)
         return {"execution_id": execution_id, "status": "RESUMED", "message": "Approval granted, resuming PR creation."}
     else:
