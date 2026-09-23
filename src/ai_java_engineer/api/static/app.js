@@ -226,7 +226,7 @@ async function loadRunDetails(runId) {
     renderArchitectureSpec(run.architecture_spec);
     renderCodeViewer(run.changed_files, run.files_content);
     renderQualityAndSecurity(run);
-    renderPullRequest(run.pr_payload);
+    renderPullRequest(run.pr_payload, run);
     renderTimeline(run.timeline);
 
   } catch (err) {
@@ -552,15 +552,23 @@ function renderQualityAndSecurity(run) {
   }
 }
 
-function renderPullRequest(pr) {
+function renderPullRequest(pr, run) {
   const title = document.getElementById("pr-title");
   const branch = document.getElementById("pr-branch-name");
   const base = document.getElementById("pr-base-branch");
   const body = document.getElementById("pr-body-markdown");
+  const ghActions = document.getElementById("pr-github-actions");
+  const btnOpenPr = document.getElementById("btn-open-github-pr");
+  const remoteBanner = document.getElementById("pr-remote-banner");
+  const remoteText = document.getElementById("pr-remote-text");
+
+  const remote = (run && run.github_remote) || {};
+  const prUrl = (pr && pr.pr_url) || remote.pr_url || (pr && pr.branch_url) || remote.branch_url;
+  const branchName = (pr && pr.branch) || remote.branch_name || "feat/ai-branch";
 
   if (pr) {
     title.textContent = pr.title || "feat: Automated Feature";
-    branch.textContent = pr.branch || "feat/ai-branch";
+    branch.textContent = branchName;
     base.textContent = pr.base_branch || "main";
     body.textContent = pr.body || "Sin descripción.";
   } else {
@@ -568,6 +576,20 @@ function renderPullRequest(pr) {
     branch.textContent = "feat/pendiente";
     base.textContent = "main";
     body.textContent = "El Pull Request se creará automáticamente cuando el pipeline complete con éxito.";
+  }
+
+  if (prUrl) {
+    if (ghActions) ghActions.style.display = "block";
+    if (btnOpenPr) btnOpenPr.href = prUrl;
+    if (remoteBanner) {
+      remoteBanner.style.display = "flex";
+      if (remoteText) {
+        remoteText.innerHTML = `Rama publicada en GitHub: <strong>${escapeHtml(branchName)}</strong> &bull; <a href="${escapeHtml(prUrl)}" target="_blank" rel="noopener noreferrer" style="color: #3fb950; text-decoration: underline; margin-left: 6px;">Abrir PR en GitHub &rarr;</a>`;
+      }
+    }
+  } else {
+    if (ghActions) ghActions.style.display = "none";
+    if (remoteBanner) remoteBanner.style.display = "none";
   }
 }
 
@@ -607,7 +629,7 @@ function initActions() {
 
       try {
         btnApprove.disabled = true;
-        btnApprove.textContent = "Aprobando...";
+        btnApprove.textContent = "⏳ Publicando en GitHub...";
 
         const headers = { "Content-Type": "application/json" };
         if (authToken) headers["Authorization"] = `Bearer ${authToken}`;

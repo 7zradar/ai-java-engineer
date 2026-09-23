@@ -51,6 +51,13 @@ class AppSettings(BaseSettings):
     jira_project_key: str = Field(default="JAVA", description="Default project key")
     jira_agent_assignee: str = Field(default="Java X", description="Assignee name or account ID")
 
+    # GitHub Remote Integration
+    github_repo_url: str = Field(
+        default="https://github.com/7zradar/ai-java-engineer.git",
+        description="Target GitHub repository URL for feature branches and PRs",
+    )
+    github_token: str | None = Field(default=None, description="Optional GitHub Personal Access Token")
+
 
 _settings: AppSettings | None = None
 

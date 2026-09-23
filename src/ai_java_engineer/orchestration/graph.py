@@ -68,7 +68,15 @@ class EngineeringOrchestrator:
         fs = SecureFilesystem(ws_root)
         git = GitService(ws_root)
 
+        # If already approved by human, proceed directly to Git PR delivery and GitHub push
+        if state.get("human_approved"):
+            logger.info("Human approval granted. Proceeding directly to Git PR Delivery Node.", execution_id=state["execution_id"])
+            return self._deliver_pr(state, git)
+
         # 1. Product Node
+        req = state.get("requirement")
+        if isinstance(req, dict):
+            state["requirement"] = RequirementSpec.model_validate(req)
         logger.info("Executing Product Node", execution_id=state["execution_id"])
         state["product_spec"] = await self.product_agent.execute(state["requirement"])
         self._checkpoint("product_node", state)
@@ -202,25 +210,66 @@ class EngineeringOrchestrator:
             return state
 
         # 10. Git PR Delivery Node
-        logger.info("Executing Git PR Delivery Node", execution_id=state["execution_id"])
-        branch_name = f"feat/ai-{state['requirement'].id.lower()}"
-        git.create_feature_branch(branch_name)
-        git.commit_changes(f"feat: {state['product_spec'].title}", state["changed_files"])
+        return self._deliver_pr(state, git)
 
-        test_summary = (
-            f"Passed: {state['test_result'].passed_count}/{state['test_result'].total} "
-            f"(Duration: {state['test_result'].duration_ms}ms)"
-        )
-        state["pr_payload"] = git.build_pr_payload(
+    def _deliver_pr(self, state: EngineeringState, git: GitService) -> EngineeringState:
+        """Executes Git PR Delivery Node: commits changes and pushes branch to GitHub remote."""
+        logger.info("Executing Git PR Delivery Node", execution_id=state["execution_id"])
+        jira_key = state.get("jira_key")
+        if jira_key:
+            task_ref = str(jira_key).lower()
+        else:
+            req = state.get("requirement")
+            req_id = getattr(req, "id", None) or (req.get("id") if isinstance(req, dict) else "") or state["execution_id"]
+            task_ref = str(req_id).replace("JIRA-", "").replace("RUN-", "").lower()
+        branch_name = f"feat/ai-{task_ref}"
+
+        test_res = state.get("test_result")
+        passed_cnt = getattr(test_res, "passed_count", None) if test_res else 0
+        if passed_cnt is None and isinstance(test_res, dict):
+            passed_cnt = test_res.get("passed_count", 0)
+        total_cnt = getattr(test_res, "total", None) if test_res else 0
+        if total_cnt is None and isinstance(test_res, dict):
+            total_cnt = test_res.get("total", 0)
+        duration_ms = getattr(test_res, "duration_ms", None) if test_res else 0
+        if duration_ms is None and isinstance(test_res, dict):
+            duration_ms = test_res.get("duration_ms", 0)
+
+        test_summary = f"Passed: {passed_cnt}/{total_cnt} (Duration: {duration_ms}ms)"
+
+        req = state.get("requirement")
+        base_branch = getattr(req, "branch_base", None) or (req.get("branch_base") if isinstance(req, dict) else "main") or "main"
+
+        prod_spec = state.get("product_spec")
+        spec_title = getattr(prod_spec, "title", None) or (prod_spec.get("title") if isinstance(prod_spec, dict) else "Automated Feature") or "Automated Feature"
+
+        pr_payload = git.build_pr_payload(
             branch_name=branch_name,
-            base_branch=state["requirement"].branch_base,
-            product_spec=state["product_spec"],
+            base_branch=base_branch,
+            product_spec=prod_spec,
             test_summary=test_summary,
         )
 
+        push_res = git.push_approved_feature_to_remote(
+            branch_name=branch_name,
+            commit_message=f"feat: {spec_title}",
+            files=state.get("changed_files"),
+        )
+        state["github_remote"] = push_res
+        if push_res.get("pr_url"):
+            pr_payload.pr_url = push_res["pr_url"]
+        if push_res.get("branch_url"):
+            pr_payload.branch_url = push_res["branch_url"]
+
+        state["pr_payload"] = pr_payload
         state["status"] = RunStatus.COMPLETED
         self._checkpoint("completed_node", state)
-        logger.info("Pipeline Completed Successfully", execution_id=state["execution_id"])
+        logger.info(
+            "Pipeline Completed Successfully",
+            execution_id=state["execution_id"],
+            branch=branch_name,
+            pr_url=pr_payload.pr_url,
+        )
 
         return state
 

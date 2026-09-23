@@ -62,3 +62,4 @@ class PullRequestPayload(BaseModel):
     labels: list[str] = Field(default_factory=list)
     draft: bool = False
     pr_url: str | None = None
+    branch_url: str | None = None

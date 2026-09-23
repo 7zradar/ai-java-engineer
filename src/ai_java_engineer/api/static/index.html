@@ -407,6 +407,15 @@
                         <span class="branch-tag base" id="pr-base-branch">main</span>
                       </div>
                     </div>
+                    <div class="pr-actions" id="pr-github-actions" style="margin-left: auto; display: none;">
+                      <a id="btn-open-github-pr" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-weight: 600;">
+                        <span>🔗 Ver / Abrir PR en GitHub</span>
+                      </a>
+                    </div>
+                  </div>
+                  <div id="pr-remote-banner" style="display: none; margin: 12px 0; padding: 10px 14px; background: rgba(35, 134, 54, 0.15); border: 1px solid rgba(35, 134, 54, 0.4); border-radius: 6px; font-size: 0.9rem; color: #3fb950; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.1rem;">🟢</span>
+                    <span id="pr-remote-text">Rama publicada exitosamente en GitHub.</span>
                   </div>
                   <div class="pr-body-markdown" id="pr-body-markdown">
                     <p class="text-muted">El Pull Request se creará automáticamente una vez que el pipeline complete y pase la compuerta de aprobación.</p>

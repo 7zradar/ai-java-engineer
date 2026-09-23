@@ -4,12 +4,21 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ai_java_engineer.api.app import app
-from ai_java_engineer.integrations.jira_client import jira_client, JiraIssue
+from ai_java_engineer.integrations.jira_client import JiraClient, jira_client, JiraIssue
 
 client = TestClient(app)
 
 
 from ai_java_engineer.infrastructure.settings import AppSettings
+
+
+@pytest.fixture(autouse=True)
+def mock_pipeline_execution(monkeypatch):
+    """Prevent background execution of heavy LLM pipelines in unit tests."""
+    async def dummy_execute(*args, **kwargs):
+        pass
+
+    monkeypatch.setattr("ai_java_engineer.api.app._execute_pipeline", dummy_execute)
 
 def test_jira_client_list_issues():
     # Test demo / isolated mode

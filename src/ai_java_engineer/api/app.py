@@ -427,10 +427,22 @@ async def _execute_pipeline(exec_id: str, state: EngineeringState, require_human
                 )
             elif final_state.get("status") == RunStatus.COMPLETED:
                 jira_client.transition_issue(j_key, "Done")
-                jira_client.add_comment(
-                    j_key,
-                    "🚀 Pull Request generado y entregable completado.",
-                )
+                remote_info = final_state.get("github_remote") or {}
+                branch_url = remote_info.get("branch_url", "")
+                pr_url = remote_info.get("pr_url", "")
+                branch_name = remote_info.get("branch_name", "")
+
+                comment_lines = [
+                    "🚀 **Pull Request generado y entregable completado.**",
+                    f"- **Rama Git:** `{branch_name}`",
+                ]
+                if branch_url:
+                    comment_lines.append(f"- **Ver Rama en GitHub:** {branch_url}")
+                if pr_url:
+                    comment_lines.append(f"- **Crear / Revisar PR:** {pr_url}")
+                comment_lines.append("\n*Publicado automáticamente por el agente autónomo Java X.*")
+
+                jira_client.add_comment(j_key, "\n".join(comment_lines))
     except Exception as e:
         logger.error(f"Pipeline execution encountered an error for {exec_id}: {e}")
         state["status"] = RunStatus.FAILED
@@ -586,6 +598,7 @@ async def get_run(execution_id: str):
         "security_result": serialize_helper(state.get("security_result")),
         "review_result": serialize_helper(state.get("review_result")),
         "pr_payload": serialize_helper(state.get("pr_payload")),
+        "github_remote": state.get("github_remote"),
         "escalation_reason": state.get("escalation_reason"),
         "human_approved": state.get("human_approved", False),
         "jira_key": state.get("jira_key"),

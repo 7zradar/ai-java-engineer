@@ -130,7 +130,7 @@ class JiraClient:
         """Retrieves an issue by key (e.g. PAY-104)."""
         key_clean = issue_key.strip().upper()
 
-        if self.is_connected:
+        if self.is_connected and (not self.settings.jira_project_key or key_clean.startswith(f"{self.settings.jira_project_key}-")):
             try:
                 live_issue = self._fetch_live_issue(key_clean)
                 if live_issue:
@@ -154,7 +154,7 @@ class JiraClient:
             })
             self._issues_db[key_clean].updated_at = timestamp
 
-        if self.is_connected:
+        if self.is_connected and (not self.settings.jira_project_key or key_clean.startswith(f"{self.settings.jira_project_key}-")):
             try:
                 return self._post_live_comment(key_clean, comment_text)
             except Exception as e:
@@ -172,7 +172,7 @@ class JiraClient:
             self._issues_db[key_clean].updated_at = timestamp
             logger.info(f"Jira issue {key_clean} transitioned to {target_status}")
 
-        if self.is_connected:
+        if self.is_connected and (not self.settings.jira_project_key or key_clean.startswith(f"{self.settings.jira_project_key}-")):
             try:
                 return self._post_live_transition(key_clean, target_status)
             except Exception as e:
