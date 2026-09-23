@@ -17,7 +17,7 @@ T = TypeVar("T", bound=BaseModel)
 class GeminiProvider(ModelProvider):
     """Google Gemini model provider with structured JSON outputs."""
 
-    def __init__(self, api_key: str, model_name: str = "gemini-1.5-pro"):
+    def __init__(self, api_key: str, model_name: str = "gemini-3.6-flash"):
         self.api_key = api_key
         self.model_name = model_name
         self.endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
@@ -34,7 +34,12 @@ class GeminiProvider(ModelProvider):
         if request.system_instruction:
             payload["systemInstruction"] = {"parts": [{"text": request.system_instruction}]}
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "AIJavaEngineer/1.0",
+        }
+
+        async with httpx.AsyncClient(timeout=60.0, headers=headers) as client:
             resp = await client.post(self.endpoint, json=payload)
             if resp.status_code != 200:
                 raise PlatformError(f"Gemini API error ({resp.status_code}): {resp.text}", code="E301")

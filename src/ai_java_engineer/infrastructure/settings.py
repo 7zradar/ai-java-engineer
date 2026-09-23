@@ -29,6 +29,7 @@ class AppSettings(BaseSettings):
     default_llm_provider: str = Field(default="mock", description="mock | gemini | openai | anthropic")
     openai_api_key: str | None = Field(default=None)
     gemini_api_key: str | None = Field(default=None)
+    gemini_model: str = Field(default="gemini-3.6-flash", description="Gemini model name")
     anthropic_api_key: str | None = Field(default=None)
 
     # Execution Backend Settings (Python host -> Remote Java CI)

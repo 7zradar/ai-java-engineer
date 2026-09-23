@@ -1076,11 +1076,28 @@ function closeJiraModal() {
   }
 }
 
+function openRunForJiraKey(jiraKey) {
+  closeJiraModal();
+  const card = Array.from(document.querySelectorAll(".run-card")).find(c => {
+    return c.textContent.includes(jiraKey);
+  });
+  if (card) {
+    card.click();
+    showToast(`Visualizando ejecución para el ticket ${jiraKey}`, "info");
+  } else {
+    showToast(`Buscando ticket Jira ${jiraKey}...`, "info");
+    fetchRuns().then(() => {
+      const refreshedCard = Array.from(document.querySelectorAll(".run-card")).find(c => c.textContent.includes(jiraKey));
+      if (refreshedCard) refreshedCard.click();
+    });
+  }
+}
+
 async function loadJiraIssues() {
   const container = document.getElementById("jira-issues-container");
   if (!container) return;
 
-  container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">Cargando tickets de Jira...</p>';
+  container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">Cargando tickets de Jira en vivo...</p>';
 
   try {
     const res = await fetch("/integrations/jira/issues");
@@ -1088,7 +1105,7 @@ async function loadJiraIssues() {
     const issues = await res.json();
 
     if (!issues || issues.length === 0) {
-      container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">No hay tickets asignados a Java X en este momento.</p>';
+      container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">No hay tickets pendientes en tu proyecto de Jira en este momento.</p>';
       return;
     }
 
@@ -1102,6 +1119,26 @@ async function loadJiraIssues() {
       else if (issue.priority === "High") priorityClass = "jira-priority-high";
 
       const acCount = (issue.acceptance_criteria && issue.acceptance_criteria.length) || 0;
+      const statusLower = (issue.status || "").toLowerCase();
+      const isReviewOrDone = statusLower.includes("revis") || statusLower.includes("review") || statusLower.includes("finaliz") || statusLower.includes("done");
+
+      let actionButtons = "";
+      if (isReviewOrDone) {
+        actionButtons = `
+          <button class="btn btn-sm btn-outline" style="border: 1px solid var(--accent); color: var(--accent);" onclick="openRunForJiraKey('${escapeHtml(issue.key)}')">
+            👁️ Ver en Revisión Humana
+          </button>
+          <button class="btn btn-sm btn-primary" onclick="importJiraByKey('${escapeHtml(issue.key)}', this)">
+            ⚡ Re-ejecutar con Gemini 3.6
+          </button>
+        `;
+      } else {
+        actionButtons = `
+          <button class="btn btn-sm btn-primary" onclick="importJiraByKey('${escapeHtml(issue.key)}', this)">
+            🚀 Asignar a Java X y Ejecutar
+          </button>
+        `;
+      }
 
       card.innerHTML = `
         <div class="jira-card-header">
@@ -1110,7 +1147,7 @@ async function loadJiraIssues() {
             <span class="jira-type-badge">${escapeHtml(issue.issue_type)}</span>
             <span class="jira-priority-badge ${priorityClass}">Prioridad: ${escapeHtml(issue.priority)}</span>
           </div>
-          <span style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(issue.status)}</span>
+          <span style="font-size: 0.8rem; font-weight: 600; color: ${isReviewOrDone ? '#F59E0B' : '#60A5FA'};">${escapeHtml(issue.status)}</span>
         </div>
         <div class="jira-card-title">${escapeHtml(issue.summary)}</div>
         <div class="jira-card-desc">${escapeHtml(issue.description)}</div>
@@ -1120,9 +1157,9 @@ async function loadJiraIssues() {
             <span>•</span>
             <span>📋 ${acCount} criterios Gherkin</span>
           </div>
-          <button class="btn btn-sm btn-primary" onclick="importJiraByKey('${escapeHtml(issue.key)}')">
-            🚀 Asignar a Java X y Ejecutar
-          </button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            ${actionButtons}
+          </div>
         </div>
       `;
       container.appendChild(card);
@@ -1132,13 +1169,20 @@ async function loadJiraIssues() {
   }
 }
 
-async function importJiraByKey(customKey) {
+async function importJiraByKey(customKey, btnElement) {
   const inputEl = document.getElementById("jira-manual-key-input");
   const key = (customKey || (inputEl ? inputEl.value : "")).trim().toUpperCase();
 
   if (!key) {
-    alert("Por favor ingresa una clave de ticket Jira válida (ej: PAY-104).");
+    showToast("Por favor ingresa una clave de ticket Jira válida (ej: SCRUM-5).", "warning");
     return;
+  }
+
+  const btn = btnElement || (inputEl ? inputEl.nextElementSibling : null);
+  const oldText = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `⏳ Asignando a Java X...`;
   }
 
   const headers = { "Content-Type": "application/json" };
@@ -1163,9 +1207,47 @@ async function importJiraByKey(customKey) {
     closeJiraModal();
     await fetchRuns();
     selectRun(data.execution_id);
+    showToast(`🚀 ¡Tarea ${key} asignada a Java X con éxito! Ejecutando pod con Gemini 3.6 Flash...`, "success");
   } catch (err) {
-    alert("Error al importar ticket de Jira: " + err.message);
+    showToast("Error al importar ticket de Jira: " + err.message, "error");
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = oldText;
+    }
   }
 }
+
+/* ==========================================================================
+   TOAST NOTIFICATION COMPONENT
+   ========================================================================== */
+function showToast(message, type = "info") {
+  let toastContainer = document.getElementById("toast-container");
+  if (!toastContainer) {
+    toastContainer = document.createElement("div");
+    toastContainer.id = "toast-container";
+    toastContainer.style.cssText = "position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; max-width: 420px; pointer-events: none;";
+    document.body.appendChild(toastContainer);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  let bg = "#1E293B";
+  let border = "1px solid rgba(255,255,255,0.15)";
+  if (type === "success") { bg = "#064E3B"; border = "1px solid #10B981"; }
+  else if (type === "error") { bg = "#7F1D1D"; border = "1px solid #EF4444"; }
+  else if (type === "warning") { bg = "#78350F"; border = "1px solid #F59E0B"; }
+  else if (type === "info") { bg = "#1E3A8A"; border = "1px solid #3B82F6"; }
+
+  toast.style.cssText = `background: ${bg}; border: ${border}; color: #ffffff; padding: 14px 20px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; gap: 10px; pointer-events: auto; transition: all 0.3s ease;`;
+  toast.innerHTML = `<span>${message}</span>`;
+  toastContainer.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(-10px)";
+    setTimeout(() => toast.remove(), 400);
+  }, 4500);
+}
+
 
 

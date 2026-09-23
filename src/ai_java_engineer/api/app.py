@@ -46,7 +46,7 @@ checkpoint_store = CheckpointStore()
 def get_configured_provider():
     settings = get_settings()
     if settings.default_llm_provider == "gemini" and settings.gemini_api_key:
-        return GeminiProvider(settings.gemini_api_key)
+        return GeminiProvider(settings.gemini_api_key, model_name=settings.gemini_model)
     if settings.default_llm_provider == "openai" and settings.openai_api_key:
         return OpenAIProvider(settings.openai_api_key)
     return MockProvider()
@@ -195,10 +195,13 @@ async def index():
 @app.get("/health")
 async def health():
     settings = get_settings()
+    llm_info = settings.default_llm_provider
+    if settings.default_llm_provider == "gemini":
+        llm_info = f"Gemini {settings.gemini_model}"
     return {
         "status": "HEALTHY",
         "env": settings.env,
-        "llm_provider": settings.default_llm_provider,
+        "llm_provider": llm_info,
         "execution_backend": settings.execution_backend,
         "version": "0.1.0",
     }
