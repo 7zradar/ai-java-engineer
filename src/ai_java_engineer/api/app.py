@@ -173,6 +173,10 @@ class CreateRunRequest(BaseModel):
     workspace_path: str | None = Field(default=None, example="./sample_repo")
     require_human_pr_approval: bool = Field(default=True)
     constraints: list[str] | None = Field(default=None)
+    execution_mode: str | None = Field(default="full_pipeline", description="full_pipeline | coder_only | qa_only | architect_only | custom")
+    selected_agents: list[str] | None = Field(default=None, description="List of active agent IDs: product, architect, coder, qa, security, review")
+    job_description: str | None = Field(default=None)
+    java_version: str | None = Field(default="Java 21")
 
 
 class ApproveRunRequest(BaseModel):
@@ -312,6 +316,7 @@ async def get_jira_issue(issue_key: str):
 class JiraImportRequest(BaseModel):
     workspace_path: str | None = None
     require_human_pr_approval: bool = True
+    execution_mode: str | None = "full_pipeline"
 
 
 @app.post("/integrations/jira/import/{issue_key}")
@@ -359,6 +364,7 @@ async def import_jira_issue(
         "human_approved": False,
         "jira_key": issue.key,
         "jira_status": "In Progress",
+        "execution_mode": req.execution_mode or "full_pipeline",
     }
 
     # Transition Jira ticket to In Progress and post start comment
@@ -524,6 +530,8 @@ async def create_run(
         "requirement": requirement,
         "status": RunStatus.PENDING,
         "human_approved": False,
+        "execution_mode": req.execution_mode or "full_pipeline",
+        "selected_agents": req.selected_agents or [],
     }
 
     RUN_STATES[exec_id] = initial_state
@@ -550,7 +558,7 @@ async def get_run(execution_id: str):
         state = loaded
 
     ws_path = state.get("workspace_path", "")
-    changed_files = state.get("changed_files", [])
+    changed_files = list(state.get("changed_files") or [])
     files_content: dict[str, str] = {}
     if ws_path and Path(ws_path).exists():
         ws_root = Path(ws_path).resolve()
@@ -561,6 +569,21 @@ async def get_run(execution_id: str):
                     files_content[cf] = target_file.read_text(encoding="utf-8", errors="replace")
             except Exception:
                 pass
+
+    # Resilient fallback: populate from code_plan actions if files are missing from disk (e.g. temp dirs or preloaded tasks)
+    code_plan = state.get("code_plan")
+    if code_plan:
+        actions = code_plan.get("actions", []) if isinstance(code_plan, dict) else getattr(code_plan, "actions", [])
+        for act in actions:
+            act_path = act.get("path") if isinstance(act, dict) else getattr(act, "path", None)
+            act_content = act.get("content") if isinstance(act, dict) else getattr(act, "content", None)
+            if act_path and act_content:
+                norm_path = act_path.replace("\\", "/")
+                if norm_path not in changed_files and act_path not in changed_files:
+                    changed_files.append(norm_path)
+                if norm_path not in files_content and act_path not in files_content:
+                    files_content[norm_path] = act_content
+                    files_content[act_path] = act_content
 
     timeline = checkpoint_store.get_checkpoints_timeline(execution_id)
 
@@ -603,6 +626,8 @@ async def get_run(execution_id: str):
         "human_approved": state.get("human_approved", False),
         "jira_key": state.get("jira_key"),
         "jira_status": state.get("jira_status"),
+        "execution_mode": state.get("execution_mode", "full_pipeline"),
+        "selected_agents": state.get("selected_agents", []),
         "timeline": timeline,
         "roi_metrics": roi_metrics,
     }

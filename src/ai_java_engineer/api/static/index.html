@@ -8,23 +8,33 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/styles.css?v=10">
 </head>
 <body>
   <div class="app-layout">
     <!-- TOP NAVIGATION BAR -->
     <header class="navbar">
-      <div class="brand">
-        <div class="brand-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button id="btn-toggle-sidebar" class="btn btn-secondary mobile-sidebar-toggle" title="Abrir lista de tareas" onclick="toggleMobileSidebar()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
           </svg>
-        </div>
-        <div class="brand-info">
-          <div class="brand-title">
-            AI Java Engineer <span class="badge-accent">Enterprise</span>
+        </button>
+
+        <div class="brand">
+          <div class="brand-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
           </div>
-          <div class="brand-subtitle">Plataforma Multi-Agente Autónoma • Java 21 & Spring Boot</div>
+          <div class="brand-info">
+            <div class="brand-title">
+              AI Java Engineer <span class="badge-accent">Enterprise</span>
+            </div>
+            <div class="brand-subtitle">Plataforma Multi-Agente Autónoma • Java 21 & Spring Boot</div>
+          </div>
         </div>
       </div>
 
@@ -42,14 +52,14 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
           </svg>
-          Actualizar
+          <span class="btn-text">Actualizar</span>
         </button>
-        <a href="/docs" target="_blank" class="btn btn-secondary">
+        <a href="/docs" target="_blank" class="btn btn-secondary nav-btn-hide-mobile">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
             <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
           </svg>
-          Swagger API
+          <span class="btn-text">Swagger API</span>
         </a>
         <div class="user-profile-tag" id="user-profile-tag" style="display: none;">
           <span class="user-avatar" id="nav-user-avatar">👑</span>
@@ -63,7 +73,7 @@
               <polyline points="16 17 21 12 16 7"></polyline>
               <line x1="21" y1="12" x2="9" y2="12"></line>
             </svg>
-            Salir
+            <span class="btn-text">Salir</span>
           </button>
         </div>
         <button id="btn-open-jira" class="btn btn-secondary" style="border-color: rgba(56, 189, 248, 0.4); color: #38BDF8;">
@@ -72,13 +82,13 @@
             <line x1="8" y1="21" x2="16" y2="21"/>
             <line x1="12" y1="17" x2="12" y2="21"/>
           </svg>
-          ⚡ Bandeja Jira
+          <span class="btn-text">⚡ Bandeja Jira</span>
         </button>
         <button id="btn-new-run" class="btn btn-primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 5v14M5 12h14"/>
           </svg>
-          Nueva Tarea
+          <span class="btn-text">Nueva Tarea</span>
         </button>
       </div>
     </header>
@@ -86,15 +96,28 @@
     <!-- MAIN BODY GRID -->
     <div class="main-container">
       <!-- SIDEBAR: RUNS LIST -->
-      <aside class="sidebar">
+      <aside class="sidebar" id="app-sidebar">
         <div class="sidebar-header">
           <div class="sidebar-title">
-            <span>Historial de Tareas</span>
-            <span class="count-badge" id="runs-count">0</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span>Historial de Tareas</span>
+              <span class="count-badge" id="runs-count">0</span>
+            </div>
+            <button class="mobile-sidebar-close" onclick="closeMobileSidebar()" title="Cerrar">&times;</button>
           </div>
           <div class="sidebar-actions">
             <button id="btn-filter-all" class="filter-btn active">Todas</button>
             <button id="btn-filter-active" class="filter-btn">En curso</button>
+          </div>
+          <div class="sidebar-agent-filter-box" style="margin-top: 8px;">
+            <select id="sidebar-agent-filter-select" class="form-input" style="font-size: 0.76rem; padding: 5px 8px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); color: var(--text-primary); cursor: pointer;" onchange="onSidebarAgentFilterChange(this.value)">
+              <option value="all">🌟 Todos los Agentes</option>
+              <option value="coder">💻 Solo Coding Agent</option>
+              <option value="qa">🧪 Solo QA Subagent</option>
+              <option value="architect">📐 Solo Architect Agent</option>
+              <option value="security">🛡️ Solo Security Guard</option>
+              <option value="product">📝 Solo Product Agent</option>
+            </select>
           </div>
         </div>
 
@@ -104,6 +127,9 @@
           </div>
         </div>
       </aside>
+
+      <!-- BACKDROP FOR MOBILE SIDEBAR -->
+      <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
 
       <!-- CONTENT AREA: ACTIVE RUN DETAILS -->
       <main class="content-area" id="content-area">
@@ -149,31 +175,30 @@
           </div>
 
           <!-- BUSINESS VALUE & ROI IMPACT BANNER -->
-          <div class="roi-banner" id="roi-banner"
- style="display: flex; gap: 16px; margin-bottom: 16px; padding: 12px 18px; background: linear-gradient(135deg, #0F2537 0%, #1E3A5F 100%); color: white; border-radius: 8px; justify-content: space-between; align-items: center; border-left: 4px solid #38BDF8; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <span style="font-size: 1.6rem;">💼</span>
+          <div class="roi-banner" id="roi-banner">
+            <div class="roi-header">
+              <span class="roi-icon">💼</span>
               <div>
-                <strong style="color: #38BDF8; font-size: 0.95rem;">Impacto de Negocio & Demanda Cubierta</strong>
-                <div style="font-size: 0.8rem; color: #94A3B8;">Perfil: Java Developer APIs (Java X) • Célula Híbrida 2+2</div>
+                <strong class="roi-title">Impacto de Negocio & Demanda Cubierta</strong>
+                <div class="roi-subtitle">Perfil: Java Developer APIs (Java X) • Célula Híbrida 2+2</div>
               </div>
             </div>
-            <div style="display: flex; gap: 24px; text-align: right;">
-              <div>
-                <div style="font-size: 0.72rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Horas Dev Ahorradas</div>
-                <strong style="color: #34D399; font-size: 1.15rem;" id="roi-hours-saved">6.0 hrs</strong>
+            <div class="roi-metrics-grid">
+              <div class="roi-metric-item">
+                <div class="roi-metric-label">Horas Dev Ahorradas</div>
+                <strong class="roi-metric-val roi-val-emerald" id="roi-hours-saved">6.0 hrs</strong>
               </div>
-              <div>
-                <div style="font-size: 0.72rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Valor Facturable Ahorrado</div>
-                <strong style="color: #38BDF8; font-size: 1.15rem;" id="roi-savings-usd">$240.00 USD</strong>
+              <div class="roi-metric-item">
+                <div class="roi-metric-label">Valor Facturable Ahorrado</div>
+                <strong class="roi-metric-val roi-val-sky" id="roi-savings-usd">$240.00 USD</strong>
               </div>
-              <div>
-                <div style="font-size: 0.72rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Pérdida Diaria Evitada</div>
-                <strong style="color: #FBBF24; font-size: 1.15rem;">$320.00 USD / día</strong>
+              <div class="roi-metric-item">
+                <div class="roi-metric-label">Pérdida Diaria Evitada</div>
+                <strong class="roi-metric-val roi-val-amber">$320.00 USD / día</strong>
               </div>
-              <div>
-                <div style="font-size: 0.72rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Margen Bruto Célula</div>
-                <strong style="color: #A7F3D0; font-size: 1.15rem;">69.2%</strong>
+              <div class="roi-metric-item">
+                <div class="roi-metric-label">Margen Bruto Célula</div>
+                <strong class="roi-metric-val roi-val-teal">69.2%</strong>
               </div>
             </div>
           </div>
@@ -204,10 +229,69 @@
             </div>
           </div>
 
+          <!-- AGENT FILTER TOOLBAR & HUB -->
+          <div class="agent-filter-toolbar">
+            <div class="agent-filter-row">
+              <div class="agent-filter-chips">
+                <span class="agent-filter-title">🎯 Filtrar por Agente:</span>
+                <button type="button" class="agent-chip active" data-agent-filter="all" onclick="setAgentFilter('all')">🌟 Todos</button>
+                <button type="button" class="agent-chip" data-agent-filter="coder" onclick="setAgentFilter('coder')">💻 Coding Agent</button>
+                <button type="button" class="agent-chip" data-agent-filter="qa" onclick="setAgentFilter('qa')">🧪 QA Subagent</button>
+                <button type="button" class="agent-chip" data-agent-filter="architect" onclick="setAgentFilter('architect')">📐 Architect</button>
+                <button type="button" class="agent-chip" data-agent-filter="security" onclick="setAgentFilter('security')">🛡️ Security Guard</button>
+                <button type="button" class="agent-chip" data-agent-filter="product" onclick="setAgentFilter('product')">📝 Product Agent</button>
+              </div>
+              <div id="active-agent-filter-banner" style="display: none;" class="agent-filter-action-group">
+                <span id="active-agent-filter-text"></span>
+                <button type="button" class="btn btn-sm btn-primary" onclick="openNewRunModalForCurrentAgent()" style="padding: 3px 10px; font-size: 0.74rem;">
+                  🚀 Asignar Tarea a este Agente
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="setAgentFilter('all')" style="padding: 3px 8px; font-size: 0.74rem;">
+                  ✕ Ver Todos
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- AGENT DIRECTIVE & JOB DESCRIPTION CARD (EXPANDS UPON CHOOSING AN AGENT) -->
+          <div id="agent-directive-card" class="agent-directive-card" style="display: none;">
+            <div class="agent-directive-header">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="agent-directive-icon" style="font-size: 1.35rem;">💻</span>
+                <div>
+                  <div style="font-weight: 700; font-size: 0.92rem; color: #F8FAFC;" id="agent-directive-title">Directiva & Job Description: Coding Agent</div>
+                  <div style="font-size: 0.74rem; color: #94A3B8;" id="agent-directive-subtitle">Personaliza las instrucciones y restricciones técnicas para este agente</div>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="btn btn-sm btn-primary" onclick="openNewRunModalForCurrentAgent()" style="padding: 5px 12px; font-size: 0.76rem;">
+                  🚀 Asignar Tarea con este Job Description
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="setAgentFilter('all')" style="padding: 5px 10px; font-size: 0.76rem;" title="Ver todos">
+                  ✕ Cerrar
+                </button>
+              </div>
+            </div>
+            <div class="agent-directive-body" style="margin-top: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <label for="agent-directive-textarea" style="font-size: 0.8rem; font-weight: 600; color: #38BDF8; margin: 0;">
+                  ✍️ Escribe o ajusta el Job Description del agente:
+                </label>
+                <span style="font-size: 0.7rem; color: #94A3B8;">Acepta versiones de Java, bibliotecas permitidas y reglas de arquitectura</span>
+              </div>
+              <textarea id="agent-directive-textarea" class="form-textarea" rows="3" style="font-family: monospace; font-size: 0.8rem; background: #060b14; color: #f8fafc; border-color: rgba(56, 189, 248, 0.4); line-height: 1.45;" placeholder="Escribe aquí las directivas que este subagente debe seguir..." oninput="onAgentDirectiveInput(this.value)"></textarea>
+            </div>
+          </div>
+
           <!-- AGENT PIPELINE STEPPER -->
           <div class="stepper-card">
             <div class="stepper-header">
-              <div class="stepper-title">Progreso del Pipeline Multi-Agente</div>
+              <div>
+                <div class="stepper-title">Progreso del Pipeline Multi-Agente</div>
+                <div class="stepper-subtext" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
+                  Haz clic en cualquier agente para ver sus tareas o asignarle trabajo
+                </div>
+              </div>
               <div class="stepper-legend">
                 <span class="legend-item"><span class="legend-dot pending"></span> Pendiente</span>
                 <span class="legend-item"><span class="legend-dot running"></span> En Proceso</span>
@@ -447,54 +531,167 @@
         </div>
 
         <div class="modal-body">
-          <!-- PRESETS SELECTOR -->
-          <div class="form-group">
-            <label class="form-label">Plantillas Rápidas de Ingeniería (Presets):</label>
-            <div class="presets-row" style="flex-wrap: wrap; gap: 8px;">
-              <button type="button" class="preset-btn active" data-preset="feature">
-                🚀 Paginación & Pedidos
-              </button>
-              <button type="button" class="preset-btn" data-preset="security">
-                🛡️ Filtro API Key
-              </button>
-              <button type="button" class="preset-btn" data-preset="payments">
-                💳 Idempotencia Pagos
-              </button>
-              <button type="button" class="preset-btn" data-preset="bugfix">
-                🛠️ Corrección NPE
-              </button>
-              <button type="button" class="preset-btn" data-preset="testing">
-                🧪 Suite JUnit 5
-              </button>
-              <button type="button" class="preset-btn" data-preset="observability">
-                📊 Interceptor Latencia
-              </button>
+          <div class="modal-form-grid">
+            <!-- COLUMNA PRINCIPAL (REQUERIMIENTO & PRESETS) -->
+            <div class="modal-col-main">
+              <!-- PRESETS SELECTOR -->
+              <div class="form-group">
+                <label class="form-label">Plantillas Rápidas de Ingeniería (Presets):</label>
+                <div class="presets-row" style="flex-wrap: wrap; gap: 8px;">
+                  <button type="button" class="preset-btn active" data-preset="feature">
+                    🚀 Paginación & Pedidos
+                  </button>
+                  <button type="button" class="preset-btn" data-preset="security">
+                    🛡️ Filtro API Key
+                  </button>
+                  <button type="button" class="preset-btn" data-preset="payments">
+                    💳 Idempotencia Pagos
+                  </button>
+                  <button type="button" class="preset-btn" data-preset="bugfix">
+                    🛠️ Corrección NPE
+                  </button>
+                  <button type="button" class="preset-btn" data-preset="testing">
+                    🧪 Suite JUnit 5
+                  </button>
+                  <button type="button" class="preset-btn" data-preset="observability">
+                    📊 Interceptor Latencia
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="task-title-input">Título de la Tarea:</label>
+                <input type="text" id="task-title-input" class="form-input" value="API de Historial de Pedidos de Clientes" placeholder="Ej: API de Historial de Pedidos de Clientes">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="task-desc-input">Requerimiento en Lenguaje Natural:</label>
+                <textarea id="task-desc-input" class="form-textarea" rows="4" placeholder="Describe qué quieres que haga el agente en tu proyecto Java...">Construir endpoint GET /api/v1/customers/{id}/orders con paginación y filtros de estado (PENDING, SHIPPED) utilizando Spring Boot 3 y Java 21.</textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="task-workspace-input">Espacio de Trabajo (Workspace):</label>
+                <input type="text" id="task-workspace-input" class="form-input" value="sandbox" placeholder="Escribe 'sandbox' o la ruta local de tu proyecto Java...">
+                <small class="form-hint">Escribe <strong>sandbox</strong> para entorno aislado seguro, o ruta absoluta a tu repo local.</small>
+              </div>
+
+              <div class="form-checkbox-row">
+                <input type="checkbox" id="task-hitl-checkbox" checked>
+                <label for="task-hitl-checkbox">
+                  <strong>Activar Compuerta de Aprobación Humana (HITL)</strong>
+                  <span>El pipeline pausará antes de hacer el commit final para que revises y apruebes.</span>
+                </label>
+              </div>
             </div>
-          </div>
 
-          <div class="form-group">
-            <label class="form-label" for="task-title-input">Título de la Tarea:</label>
-            <input type="text" id="task-title-input" class="form-input" value="API de Historial de Pedidos de Clientes" placeholder="Ej: API de Historial de Pedidos de Clientes">
-          </div>
+            <!-- COLUMNA SECUNDARIA (SUBAGENTES, ALCANCE & JOB DESCRIPTION) -->
+            <div class="modal-col-side">
+              <!-- SELECCIÓN INTERACTIVA DE SUBAGENTES & AHORRO DE TOKENS -->
+              <div class="form-group" style="background: rgba(15, 37, 55, 0.65); padding: 12px; border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.25); margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <label class="form-label" style="color: #38BDF8; font-weight: 600; margin-bottom: 0; font-size: 0.8rem;">
+                    🤖 Subagentes Activos (Tokens):
+                  </label>
+                  <span id="token-savings-badge" style="font-size: 0.72rem; background: rgba(52, 211, 153, 0.15); color: #34D399; padding: 2px 8px; border-radius: 12px; font-weight: 600; border: 1px solid rgba(52, 211, 153, 0.3);">
+                    ⚡ Ahorro: 0% • 6/6 Agentes
+                  </span>
+                </div>
 
-          <div class="form-group">
-            <label class="form-label" for="task-desc-input">Requerimiento en Lenguaje Natural:</label>
-            <textarea id="task-desc-input" class="form-textarea" rows="4" placeholder="Describe qué quieres que haga el agente en tu proyecto Java...">Construir endpoint GET /api/v1/customers/{id}/orders con paginación y filtros de estado (PENDING, SHIPPED) utilizando Spring Boot 3 y Java 21.</textarea>
-          </div>
+                <!-- Botones de Acceso Rápido -->
+                <div class="agent-presets-bar" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px;">
+                  <button type="button" class="btn btn-sm btn-secondary agent-preset-btn active" data-preset-agent="full" style="padding: 4px 8px; font-size: 0.72rem;">🏭 Todos</button>
+                  <button type="button" class="btn btn-sm btn-secondary agent-preset-btn" data-preset-agent="coder" style="padding: 4px 8px; font-size: 0.72rem;">💻 Solo Dev</button>
+                  <button type="button" class="btn btn-sm btn-secondary agent-preset-btn" data-preset-agent="qa" style="padding: 4px 8px; font-size: 0.72rem;">🧪 Solo QA</button>
+                  <button type="button" class="btn btn-sm btn-secondary agent-preset-btn" data-preset-agent="arch_coder" style="padding: 4px 8px; font-size: 0.72rem;">📐 Arq+Dev</button>
+                  <button type="button" class="btn btn-sm btn-secondary agent-preset-btn" data-preset-agent="custom" style="padding: 4px 8px; font-size: 0.72rem;">✏️ Custom</button>
+                </div>
 
+                <!-- Tarjetas de Checkboxes de los 6 Subagentes en cuadrícula compacta -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;" id="agent-checkboxes-grid">
+                  <label class="agent-check-card" style="display: flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.7); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="chk-agent-product" value="product" checked style="width: 14px; height: 14px; accent-color: #38BDF8;">
+                    <div>
+                      <div style="font-size: 0.78rem; font-weight: 600; color: #F8FAFC;">📝 Product</div>
+                      <div style="font-size: 0.68rem; color: #94A3B8;">Historias & Gherkin</div>
+                    </div>
+                  </label>
 
-          <div class="form-group">
-            <label class="form-label" for="task-workspace-input">Espacio de Trabajo (Workspace):</label>
-            <input type="text" id="task-workspace-input" class="form-input" value="sandbox" placeholder="Escribe 'sandbox' o la ruta local de tu proyecto Java...">
-            <small class="form-hint">Escribe <strong>sandbox</strong> para probar en un entorno aislado seguro sin tocar tus archivos, o escribe una ruta absoluta a tu proyecto local.</small>
-          </div>
+                  <label class="agent-check-card" style="display: flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.7); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="chk-agent-architect" value="architect" checked style="width: 14px; height: 14px; accent-color: #38BDF8;">
+                    <div>
+                      <div style="font-size: 0.78rem; font-weight: 600; color: #F8FAFC;">📐 Architect</div>
+                      <div style="font-size: 0.68rem; color: #94A3B8;">Diseño API & DTOs</div>
+                    </div>
+                  </label>
 
-          <div class="form-checkbox-row">
-            <input type="checkbox" id="task-hitl-checkbox" checked>
-            <label for="task-hitl-checkbox">
-              <strong>Activar Compuerta de Aprobación Humana (HITL)</strong>
-              <span>El pipeline pausará antes de hacer el commit final para que revises y apruebes.</span>
-            </label>
+                  <label class="agent-check-card" style="display: flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.7); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.25); cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="chk-agent-coder" value="coder" checked style="width: 14px; height: 14px; accent-color: #38BDF8;">
+                    <div>
+                      <div style="font-size: 0.78rem; font-weight: 600; color: #38BDF8;">💻 Coding</div>
+                      <div style="font-size: 0.68rem; color: #94A3B8;">Código Spring Boot</div>
+                    </div>
+                  </label>
+
+                  <label class="agent-check-card" style="display: flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.7); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="chk-agent-qa" value="qa" checked style="width: 14px; height: 14px; accent-color: #38BDF8;">
+                    <div>
+                      <div style="font-size: 0.78rem; font-weight: 600; color: #A78BFA;">🧪 QA Subagent</div>
+                      <div style="font-size: 0.68rem; color: #94A3B8;">Edge Cases & Tests</div>
+                    </div>
+                  </label>
+
+                  <label class="agent-check-card" style="display: flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.7); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="chk-agent-security" value="security" checked style="width: 14px; height: 14px; accent-color: #38BDF8;">
+                    <div>
+                      <div style="font-size: 0.78rem; font-weight: 600; color: #F59E0B;">🛡️ Security</div>
+                      <div style="font-size: 0.68rem; color: #94A3B8;">SAST & OWASP</div>
+                    </div>
+                  </label>
+
+                  <label class="agent-check-card" style="display: flex; align-items: center; gap: 8px; background: rgba(30, 41, 59, 0.7); padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="chk-agent-review" value="review" checked style="width: 14px; height: 14px; accent-color: #38BDF8;">
+                    <div>
+                      <div style="font-size: 0.78rem; font-weight: 600; color: #34D399;">👀 Reviewer</div>
+                      <div style="font-size: 0.68rem; color: #94A3B8;">Calidad & Peer PR</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- SELECTOR DE VERSIÓN DE JAVA Y PLANTILLA DE JOB DESCRIPTION -->
+              <div class="modal-dual-row" style="margin-bottom: 12px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label" for="task-java-version-select" style="font-size: 0.78rem;">Versión de Java:</label>
+                  <select id="task-java-version-select" class="form-input" style="font-size: 0.8rem; padding: 7px 10px;">
+                    <option value="Java 21" selected>☕ Java 21 (Virtual Threads)</option>
+                    <option value="Java 17">☕ Java 17 (LTS)</option>
+                    <option value="Java 11">☕ Java 11 (Legacy)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label" for="task-agent-scope-select" style="font-size: 0.78rem;">Plantilla de Job Description:</label>
+                  <select id="task-agent-scope-select" class="form-input" style="font-size: 0.8rem; padding: 7px 10px;">
+                    <option value="java21_modern" selected>🚀 Dev Java 21 Moderno</option>
+                    <option value="qa_heavy">🧪 QA Automation</option>
+                    <option value="security_strict">🛡️ Seguridad OWASP</option>
+                    <option value="java17_classic">☕ Java 17 Estándar</option>
+                    <option value="high_perf">⚡ Alto Rendimiento</option>
+                    <option value="custom">✏️ Personalizado</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- EDITOR DE JOB DESCRIPTION (100% VISIBLE Y EDITABLE) -->
+              <div class="form-group" id="job-desc-group" style="margin-bottom: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <label class="form-label" id="task-job-desc-label" for="task-job-desc-input" style="color: #38BDF8; font-weight: 600; margin-bottom: 0; font-size: 0.8rem;">
+                    📋 Directiva del Agente (Job Description Editable):
+                  </label>
+                  <small style="color: #94A3B8; font-size: 0.68rem;">Editable libremente</small>
+                </div>
+                <textarea id="task-job-desc-input" class="form-textarea" rows="4" style="font-family: monospace; font-size: 0.76rem; line-height: 1.4; border-color: rgba(56, 189, 248, 0.4); background: #0a1320; color: #f1f5f9;" placeholder="Escribe aquí las directivas y restricciones que el subagente debe seguir..."></textarea>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -612,15 +809,25 @@
 
         <div class="modal-body">
           <!-- Manual Key Importer Bar -->
-          <div class="jira-search-bar" style="margin-bottom: 18px; display: flex; gap: 8px;">
-            <input type="text" id="jira-manual-key-input" class="form-input" placeholder="Ingresa clave de ticket Jira (ej: PAY-104, AUTH-205, ORD-301)...">
+          <div class="jira-search-bar" style="margin-bottom: 12px; display: flex; gap: 8px;">
+            <input type="text" id="jira-manual-key-input" class="form-input" placeholder="Ingresa clave de ticket Jira (ej: SCRUM-11, SCRUM-12, SCRUM-13)...">
             <button type="button" class="btn btn-secondary" onclick="importJiraByKey()" style="white-space: nowrap;">
               📥 Importar y Ejecutar
             </button>
           </div>
 
+          <!-- JIRA ROLE FILTER BAR -->
+          <div class="jira-filter-bar" style="margin-bottom: 14px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; background: rgba(0, 82, 204, 0.1); border: 1px solid rgba(38, 132, 255, 0.25); padding: 8px 12px; border-radius: 8px;">
+            <span style="font-size: 0.78rem; font-weight: 600; color: #93C5FD; margin-right: 4px;">🎯 Filtrar por Rol:</span>
+            <button type="button" class="jira-role-pill active" data-jira-role="all" onclick="filterJiraByRole('all')">🌟 Todos</button>
+            <button type="button" class="jira-role-pill" data-jira-role="coder" onclick="filterJiraByRole('coder')">💻 Desarrollador</button>
+            <button type="button" class="jira-role-pill" data-jira-role="qa" onclick="filterJiraByRole('qa')">🧪 QA & Tests</button>
+            <button type="button" class="jira-role-pill" data-jira-role="security" onclick="filterJiraByRole('security')">🛡️ Seguridad</button>
+            <button type="button" class="jira-role-pill" data-jira-role="architect" onclick="filterJiraByRole('architect')">📐 Arquitectura</button>
+          </div>
+
           <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <span>Tickets Disponibles en Backlog (Asignados a Java X):</span>
+            <span id="jira-tickets-count-label">Tickets Disponibles en Backlog (Asignados a Java X):</span>
             <button class="btn btn-sm btn-secondary" onclick="loadJiraIssues()" title="Refrescar backlog Jira">🔄 Refrescar</button>
           </div>
 
@@ -636,6 +843,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=10"></script>
 </body>
 </html>

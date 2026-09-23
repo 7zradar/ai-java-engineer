@@ -4,17 +4,17 @@
  */
 
 const PIPELINE_STEPS = [
-  { id: 'product_node', name: 'Product Agent', icon: '📝', desc: 'Historias & AC' },
-  { id: 'context_node', name: 'Context Indexer', icon: '🔍', desc: 'Escaneo & RAG' },
-  { id: 'architect_node', name: 'Architect Agent', icon: '📐', desc: 'Diseño API' },
-  { id: 'coder_node', name: 'Coding Agent', icon: '💻', desc: 'Generación .java' },
-  { id: 'qa_node', name: 'QA Subagent', icon: '🎯', desc: 'Edge Cases & Negatives' },
-  { id: 'build_node', name: 'Build & Healing', icon: '⚙️', desc: 'Compilación Maven' },
-  { id: 'test_node', name: 'Test Runner', icon: '🧪', desc: 'JUnit 5 Suite' },
-  { id: 'security_node', name: 'Security Guard', icon: '🛡️', desc: 'SAST Scan' },
-  { id: 'review_node', name: 'Code Reviewer', icon: '👀', desc: 'Auditoría Peer' },
-  { id: 'waiting_approval_node', name: 'Compuerta HITL', icon: '🧑‍💻', desc: 'Revisión Humana' },
-  { id: 'completed_node', name: 'Git Delivery', icon: '🚀', desc: 'Pull Request' },
+  { id: 'product_node', name: 'Product Agent', icon: '📝', desc: 'Historias & AC', agent: 'product' },
+  { id: 'context_node', name: 'Context Indexer', icon: '🔍', desc: 'Escaneo & RAG', agent: 'coder' },
+  { id: 'architect_node', name: 'Architect Agent', icon: '📐', desc: 'Diseño API', agent: 'architect' },
+  { id: 'coder_node', name: 'Coding Agent', icon: '💻', desc: 'Generación .java', agent: 'coder' },
+  { id: 'qa_node', name: 'QA Subagent', icon: '🎯', desc: 'Edge Cases & Negatives', agent: 'qa' },
+  { id: 'build_node', name: 'Build & Healing', icon: '⚙️', desc: 'Compilación Maven', agent: 'coder' },
+  { id: 'test_node', name: 'Test Runner', icon: '🧪', desc: 'JUnit 5 Suite', agent: 'qa' },
+  { id: 'security_node', name: 'Security Guard', icon: '🛡️', desc: 'SAST Scan', agent: 'security' },
+  { id: 'review_node', name: 'Code Reviewer', icon: '👀', desc: 'Auditoría Peer', agent: 'coder' },
+  { id: 'waiting_approval_node', name: 'Compuerta HITL', icon: '🧑‍💻', desc: 'Revisión Humana', agent: 'architect' },
+  { id: 'completed_node', name: 'Git Delivery', icon: '🚀', desc: 'Pull Request', agent: 'coder' },
 ];
 
 
@@ -45,6 +45,69 @@ const PRESETS = {
   }
 };
 
+const JOB_DESCRIPTIONS = {
+  java21_modern: "Senior Java 21 & Spring Boot 3 Engineer. Usar Java 21 LTS exclusivamente. Aplicar Records para DTOs inmutables, compatibilidad con Virtual Threads (Project Loom), pattern matching para switch e instanceof, inyección por constructor y pruebas unitarias completas con JUnit 5 y AssertJ.",
+  qa_heavy: "Lead QA Automation Engineer. No desarrollar lógica de negocio en main; diseñar agresivamente suites de pruebas de estrés, casos de borde, entradas nulas e inválidas (HTTP 400), recurso no encontrado (HTTP 404), concurrencia simulada y fallos downstream mockeados con JUnit 5, AssertJ y Mockito.",
+  security_strict: "AppSec & DevSecOps Engineer. Implementar filtros de seguridad estrictos (OncePerRequestFilter), sanitización de inputs contra OWASP Top 10, consultas JPA 100% parametrizadas sin concatenación SQL, comparaciones en tiempo constante (MessageDigest.isEqual) y pruebas de inyección.",
+  java17_classic: "Enterprise Java 17 Backend Developer. Código 100% compatible con Java 17 LTS y Spring Boot 2.7/3.0. DTOs en POJOs estándar con getters/setters explícitos sin Lombok, manejo centralizado de excepciones con @RestControllerAdvice y cobertura mínima del 85% en JUnit 5.",
+  high_perf: "Java High-Throughput & Performance Engineer. Procesar datos masivos minimizando la memoria Heap mediante StreamingResponseBody y flujos chunked, paginación nativa obligatoria (Pageable), estructuras concurrentes libres de lock y métricas de latencia por petición.",
+  custom: "Escribe aquí las directivas personalizadas, librerías obligatorias y restricciones de arquitectura para el agente..."
+};
+
+const AGENT_DEFAULT_JOB_DESCRIPTIONS = {
+  coder: {
+    name: "Coding Agent (Desarrollador Java)",
+    scope: "java21_modern",
+    icon: "💻",
+    desc: "Senior Java 21 & Spring Boot 3 Engineer. Usar Java 21 LTS exclusivamente. Aplicar Records para DTOs inmutables, compatibilidad con Virtual Threads (Project Loom), inyección por constructor y pruebas unitarias completas con JUnit 5 y AssertJ."
+  },
+  qa: {
+    name: "QA Subagent (Calidad & Tests)",
+    scope: "qa_heavy",
+    icon: "🧪",
+    desc: "Lead QA Automation Engineer. No desarrollar lógica de negocio en main; diseñar agresivamente suites de pruebas de estrés, casos de borde, entradas nulas e inválidas (HTTP 400), recurso no encontrado (HTTP 404), concurrencia simulada y fallos downstream mockeados con JUnit 5, AssertJ y Mockito."
+  },
+  security: {
+    name: "Security Guard (AppSec OWASP)",
+    scope: "security_strict",
+    icon: "🛡️",
+    desc: "AppSec & DevSecOps Engineer. Implementar filtros de seguridad estrictos (OncePerRequestFilter), sanitización de inputs contra OWASP Top 10, consultas JPA 100% parametrizadas sin concatenación SQL, comparaciones en tiempo constante (MessageDigest.isEqual) y pruebas de inyección."
+  },
+  architect: {
+    name: "Architect Agent (Diseño API)",
+    scope: "high_perf",
+    icon: "📐",
+    desc: "Solutions & API Architect. Diseñar contratos OpenAPI/Swagger, DTOs inmutables con Records, segmentación de capas de dominio/servicio y patrones de resiliencia, paginación nativa y streaming reactivo."
+  },
+  product: {
+    name: "Product Agent (Historias Gherkin)",
+    scope: "custom",
+    icon: "📝",
+    desc: "Technical Product Owner & Business Analyst. Desglosar requerimientos en Historias de Usuario estructuradas (Como/Quiero/Para) y Criterios de Aceptación ejecutables en sintaxis formal Gherkin (DADO/CUANDO/ENTONCES)."
+  },
+  review: {
+    name: "Code Reviewer (Peer Auditor)",
+    scope: "custom",
+    icon: "👀",
+    desc: "Principal Staff Engineer & Reviewer. Auditar calidad del código generado verificando adherencia a principios SOLID, Clean Code, manejo adecuado de excepciones sin tragar stacktraces y estándares de seguridad corporativa."
+  },
+  full: {
+    name: "Todos los Agentes (Fábrica Completa)",
+    scope: "java21_modern",
+    icon: "🏭",
+    desc: "Célula Híbrida 2+2 Multi-Agente. Pipeline completo: Historias Gherkin -> Arquitectura de Endpoints -> Implementación Java 21 -> Pruebas de estrés QA -> Escaneo de Seguridad OWASP -> Revisión Peer."
+  }
+};
+
+let currentAgentJobDescriptions = {
+  coder: AGENT_DEFAULT_JOB_DESCRIPTIONS.coder.desc,
+  qa: AGENT_DEFAULT_JOB_DESCRIPTIONS.qa.desc,
+  security: AGENT_DEFAULT_JOB_DESCRIPTIONS.security.desc,
+  architect: AGENT_DEFAULT_JOB_DESCRIPTIONS.architect.desc,
+  product: AGENT_DEFAULT_JOB_DESCRIPTIONS.product.desc,
+  review: AGENT_DEFAULT_JOB_DESCRIPTIONS.review.desc,
+  full: AGENT_DEFAULT_JOB_DESCRIPTIONS.full.desc
+};
 
 let currentRunId = null;
 let pollTimer = null;
@@ -52,6 +115,13 @@ let activeFileTab = null;
 let cachedRunData = null;
 let currentUser = null;
 let authToken = localStorage.getItem("ai_java_token") || null;
+
+// Multi-Agent Filtering State
+let activeAgentFilter = "all";
+let activeStatusFilter = "all"; // 'all' | 'active'
+let activeJiraRoleFilter = "all";
+let allLoadedRuns = [];
+let allLoadedJiraIssues = [];
 
 // Initialize when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
@@ -87,60 +157,264 @@ async function fetchHealth() {
 }
 
 /* ==========================================================================
-   RUNS LISTING & SELECTION
+   RUNS LISTING & SELECTION WITH AGENT FILTERING
    ========================================================================== */
 async function fetchRuns() {
   try {
     const res = await fetch("/runs");
     if (!res.ok) return;
-    const runs = await res.json();
-    
-    const countBadge = document.getElementById("runs-count");
-    if (countBadge) countBadge.textContent = runs.length;
-    
-    const container = document.getElementById("runs-list-container");
-    if (!runs || runs.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state-card" style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.85rem;">
-          <p>No hay tareas registradas aún.</p>
-          <button class="btn btn-sm btn-primary" style="margin-top: 10px;" onclick="openNewRunModal()">+ Crear Primera</button>
-        </div>`;
-      return;
-    }
-
-    container.innerHTML = "";
-    runs.forEach(run => {
-      const card = document.createElement("div");
-      card.className = `run-card ${run.execution_id === currentRunId ? "selected" : ""}`;
-      card.onclick = () => selectRun(run.execution_id);
-
-      const statusBadge = getStatusBadge(run.status);
-      card.innerHTML = `
-        <div class="run-card-top">
-          <span class="run-card-id">${escapeHtml(run.execution_id)}</span>
-          ${statusBadge}
-        </div>
-        <div class="run-card-title">${escapeHtml(run.title || run.execution_id)}</div>
-        <div class="run-card-footer">
-          <span>Iteración: ${run.iteration || 0}</span>
-          <span>${escapeHtml(run.created_at || "Reciente")}</span>
-        </div>
-      `;
-      container.appendChild(card);
-    });
-
-    // Auto-select latest run if none selected
-    if (!currentRunId && runs.length > 0) {
-      selectRun(runs[0].execution_id);
-    }
+    allLoadedRuns = await res.json();
+    renderRunsList();
   } catch (err) {
     console.error("Error fetching runs:", err);
+  }
+}
+
+function renderRunsList() {
+  const container = document.getElementById("runs-list-container");
+  if (!container) return;
+
+  // 1. Filter runs based on activeStatusFilter (Todas vs En curso)
+  let filteredRuns = allLoadedRuns;
+  if (activeStatusFilter === "active") {
+    filteredRuns = filteredRuns.filter(run => {
+      const s = (run.status || "PENDING").toUpperCase();
+      return s === "RUNNING" || s === "WAITING_APPROVAL" || s === "PENDING";
+    });
+  }
+
+  // 2. Filter runs based on activeAgentFilter
+  if (activeAgentFilter && activeAgentFilter !== "all") {
+    filteredRuns = filteredRuns.filter(run => {
+      const mode = run.execution_mode || "";
+      const text = ((run.title || "") + " " + (run.requirement_text || "") + " " + (run.job_description || "")).toLowerCase();
+      const agents = run.selected_agents || [];
+
+      if (agents.length > 0 && agents.includes(activeAgentFilter)) return true;
+
+      if (activeAgentFilter === "coder") {
+        return mode === "coder_only" || mode === "full_pipeline" || text.includes("order") || text.includes("api") || text.includes("java") || text.includes("spring") || text.includes("feature") || text.includes("payment");
+      }
+      if (activeAgentFilter === "qa") {
+        return mode === "qa_only" || mode === "full_pipeline" || text.includes("test") || text.includes("junit") || text.includes("qa") || text.includes("stress");
+      }
+      if (activeAgentFilter === "security") {
+        return text.includes("security") || text.includes("seguridad") || text.includes("key") || text.includes("auth") || text.includes("owasp") || text.includes("hmac") || mode === "full_pipeline";
+      }
+      if (activeAgentFilter === "architect") {
+        return mode === "architect_only" || mode === "full_pipeline" || text.includes("arch") || text.includes("diseño") || text.includes("endpoint") || text.includes("dto");
+      }
+      if (activeAgentFilter === "product") {
+        return mode === "full_pipeline" || text.includes("product") || text.includes("historias") || text.includes("gherkin");
+      }
+      return true;
+    });
+  }
+
+  const countBadge = document.getElementById("runs-count");
+  if (countBadge) countBadge.textContent = filteredRuns.length;
+
+  if (!filteredRuns || filteredRuns.length === 0) {
+    const agentNames = {
+      coder: "Coding Agent",
+      qa: "QA Subagent",
+      architect: "Architect Agent",
+      security: "Security Guard",
+      product: "Product Agent"
+    };
+    const label = agentNames[activeAgentFilter] || activeAgentFilter;
+
+    let emptyMsg = "No hay tareas registradas aún.";
+    if (activeStatusFilter === "active" && activeAgentFilter !== "all") {
+      emptyMsg = `No hay tareas en curso para <strong>${label}</strong>.`;
+    } else if (activeStatusFilter === "active") {
+      emptyMsg = "No hay tareas en curso en este momento (todas las tareas han finalizado o están completadas).";
+    } else if (activeAgentFilter !== "all") {
+      emptyMsg = `No hay tareas asignadas a <strong>${label}</strong>.`;
+    }
+
+    container.innerHTML = `
+      <div class="empty-state-card" style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.85rem;">
+        <p>${emptyMsg}</p>
+        <button class="btn btn-sm btn-primary" style="margin-top: 10px;" onclick="openNewRunModalForCurrentAgent()">
+          🚀 Iniciar Nueva Tarea
+        </button>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = "";
+  filteredRuns.forEach(run => {
+    const card = document.createElement("div");
+    card.className = `run-card ${run.execution_id === currentRunId ? "selected" : ""}`;
+    card.onclick = () => selectRun(run.execution_id);
+
+    const statusBadge = getStatusBadge(run.status);
+    card.innerHTML = `
+      <div class="run-card-top">
+        <span class="run-card-id">${escapeHtml(run.execution_id)}</span>
+        ${statusBadge}
+      </div>
+      <div class="run-card-title">${escapeHtml(run.title || run.execution_id)}</div>
+      <div class="run-card-footer">
+        <span>Iteración: ${run.iteration || 0}</span>
+        <span>${escapeHtml(run.created_at || "Reciente")}</span>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  // Auto-select latest run if none selected or current run not in filtered
+  const hasCurrentInFiltered = filteredRuns.some(r => r.execution_id === currentRunId);
+  if (!hasCurrentInFiltered && filteredRuns.length > 0) {
+    selectRun(filteredRuns[0].execution_id);
+  }
+}
+
+function onAgentDirectiveInput(val) {
+  if (activeAgentFilter && activeAgentFilter !== "all") {
+    currentAgentJobDescriptions[activeAgentFilter] = val;
+  }
+  const modalJobInput = document.getElementById("task-job-desc-input");
+  if (modalJobInput) {
+    modalJobInput.value = val;
+  }
+}
+
+function updateModalJobDescription(agentKey) {
+  const info = AGENT_DEFAULT_JOB_DESCRIPTIONS[agentKey] || AGENT_DEFAULT_JOB_DESCRIPTIONS.coder;
+  const labelEl = document.getElementById("task-job-desc-label");
+  const inputEl = document.getElementById("task-job-desc-input");
+  const scopeSelect = document.getElementById("task-agent-scope-select");
+
+  if (labelEl) {
+    labelEl.innerHTML = `📋 Job Description para ${info.icon} ${info.name} (Editable):`;
+  }
+  if (inputEl) {
+    inputEl.value = currentAgentJobDescriptions[agentKey] || info.desc;
+    // Highlight with glow animation and focus
+    inputEl.classList.remove("job-desc-pulse");
+    void inputEl.offsetWidth; // trigger reflow
+    inputEl.classList.add("job-desc-pulse");
+    setTimeout(() => inputEl.focus(), 150);
+  }
+  if (scopeSelect && info.scope) {
+    scopeSelect.value = info.scope;
+  }
+}
+
+function setAgentFilter(agentId) {
+  activeAgentFilter = agentId || "all";
+
+  // Update chips in toolbar
+  document.querySelectorAll(".agent-chip").forEach(chip => {
+    chip.classList.toggle("active", chip.getAttribute("data-agent-filter") === activeAgentFilter);
+  });
+
+  // Update sidebar select
+  const sidebarSelect = document.getElementById("sidebar-agent-filter-select");
+  if (sidebarSelect && sidebarSelect.value !== activeAgentFilter) {
+    sidebarSelect.value = activeAgentFilter;
+  }
+
+  // Update stepper highlight
+  document.querySelectorAll(".step-node").forEach(node => {
+    const stepAgent = node.getAttribute("data-step-agent");
+    node.classList.toggle("filter-selected", activeAgentFilter !== "all" && stepAgent === activeAgentFilter);
+  });
+
+  // Update Agent Directive Card (Job Description on Dashboard)
+  const card = document.getElementById("agent-directive-card");
+  if (card) {
+    if (activeAgentFilter === "all") {
+      card.style.display = "none";
+    } else {
+      const info = AGENT_DEFAULT_JOB_DESCRIPTIONS[activeAgentFilter] || AGENT_DEFAULT_JOB_DESCRIPTIONS.coder;
+      const iconEl = document.getElementById("agent-directive-icon");
+      const titleEl = document.getElementById("agent-directive-title");
+      const textarea = document.getElementById("agent-directive-textarea");
+
+      if (iconEl) iconEl.textContent = info.icon;
+      if (titleEl) titleEl.textContent = `Directiva & Job Description: ${info.name}`;
+      if (textarea) {
+        textarea.value = currentAgentJobDescriptions[activeAgentFilter] || info.desc;
+        setTimeout(() => textarea.focus(), 100);
+      }
+      card.style.display = "block";
+    }
+  }
+
+  // Update active filter banner
+  const banner = document.getElementById("active-agent-filter-banner");
+  const bannerText = document.getElementById("active-agent-filter-text");
+  if (banner && bannerText) {
+    if (activeAgentFilter === "all") {
+      banner.style.display = "none";
+    } else {
+      const info = AGENT_DEFAULT_JOB_DESCRIPTIONS[activeAgentFilter] || AGENT_DEFAULT_JOB_DESCRIPTIONS.coder;
+      banner.style.display = "flex";
+      bannerText.innerHTML = `Agente: <strong>${info.name}</strong>`;
+    }
+  }
+
+  // Re-render runs list
+  renderRunsList();
+
+  // If Jira modal is active, sync role filter
+  if (activeAgentFilter !== "all") {
+    activeJiraRoleFilter = activeAgentFilter;
+    document.querySelectorAll(".jira-role-pill").forEach(pill => {
+      pill.classList.toggle("active", pill.getAttribute("data-jira-role") === activeJiraRoleFilter);
+    });
+  }
+}
+
+function onSidebarAgentFilterChange(val) {
+  setAgentFilter(val);
+}
+
+function openNewRunModalForCurrentAgent() {
+  openNewRunModal();
+  const agentKey = (activeAgentFilter && activeAgentFilter !== "all") ? activeAgentFilter : "coder";
+
+  // Check only this agent in modal
+  const agentIds = ["product", "architect", "coder", "qa", "security", "review"];
+  agentIds.forEach(id => {
+    const el = document.getElementById(`chk-agent-${id}`);
+    if (el) el.checked = (id === agentKey);
+  });
+
+  // Highlight matching preset button
+  document.querySelectorAll(".agent-preset-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("data-preset-agent") === agentKey);
+  });
+
+  // Update token savings badge
+  const badge = document.getElementById("token-savings-badge");
+  if (badge) {
+    badge.textContent = `⚡ Ahorro: ~75% • 1/6 Agentes`;
+    badge.style.color = "#34D399";
+    badge.style.background = "rgba(52, 211, 153, 0.15)";
+    badge.style.borderColor = "rgba(52, 211, 153, 0.3)";
+  }
+
+  // Update Job Description and focus
+  updateModalJobDescription(agentKey);
+
+  // If the user modified the job description on the dashboard, sync it into the modal
+  const hubVal = document.getElementById("agent-directive-textarea")?.value?.trim();
+  if (hubVal) {
+    const modalInput = document.getElementById("task-job-desc-input");
+    if (modalInput) modalInput.value = hubVal;
   }
 }
 
 function selectRun(runId) {
   if (pollTimer) clearInterval(pollTimer);
   currentRunId = runId;
+
+  // On mobile/tablet, close sidebar drawer
+  closeMobileSidebar();
 
   // Highlight card in sidebar
   document.querySelectorAll(".run-card").forEach(c => {
@@ -272,7 +546,20 @@ function renderPipelineStepper(run) {
       statusText = "Ejecutando...";
     }
 
-    nodeEl.className = `step-node ${stateClass}`;
+    const isFilterSelected = activeAgentFilter !== "all" && step.agent === activeAgentFilter;
+    nodeEl.className = `step-node ${stateClass} ${isFilterSelected ? "filter-selected" : ""}`;
+    nodeEl.setAttribute("data-step-agent", step.agent || "");
+    nodeEl.title = `Clic para filtrar por ${step.name}`;
+    nodeEl.onclick = () => {
+      if (step.agent) {
+        if (activeAgentFilter === step.agent) {
+          setAgentFilter("all");
+        } else {
+          setAgentFilter(step.agent);
+        }
+      }
+    };
+
     nodeEl.innerHTML = `
       <span class="step-icon">${step.icon}</span>
       <span class="step-name">${step.name}</span>
@@ -444,8 +731,13 @@ function renderCodeViewer(changedFiles, filesContent) {
   });
 
   pathLabel.textContent = activeFileTab;
-  const content = (filesContent && filesContent[activeFileTab]) || "// Contenido no disponible o archivo en creación...";
-  display.textContent = content;
+  let content = null;
+  if (filesContent) {
+    content = filesContent[activeFileTab] ||
+              filesContent[activeFileTab.replace(/\\/g, "/")] ||
+              filesContent[activeFileTab.replace(/\//g, "\\")];
+  }
+  display.textContent = content || "// Contenido no disponible o archivo en creación...";
 }
 
 function renderQualityAndSecurity(run) {
@@ -717,6 +1009,28 @@ function initActions() {
       if (currentRunId) loadRunDetails(currentRunId);
     };
   }
+
+  // Sidebar status filter buttons (Todas vs En curso)
+  const btnFilterAll = document.getElementById("btn-filter-all");
+  const btnFilterActive = document.getElementById("btn-filter-active");
+
+  if (btnFilterAll) {
+    btnFilterAll.onclick = () => {
+      btnFilterAll.classList.add("active");
+      if (btnFilterActive) btnFilterActive.classList.remove("active");
+      activeStatusFilter = "all";
+      renderRunsList();
+    };
+  }
+
+  if (btnFilterActive) {
+    btnFilterActive.onclick = () => {
+      btnFilterActive.classList.add("active");
+      if (btnFilterAll) btnFilterAll.classList.remove("active");
+      activeStatusFilter = "active";
+      renderRunsList();
+    };
+  }
 }
 
 /* ==========================================================================
@@ -758,18 +1072,147 @@ function initModals() {
   const openBtn = document.getElementById("btn-new-run");
   if (openBtn) openBtn.onclick = openNewRunModal;
 
+  const agentIds = ["product", "architect", "coder", "qa", "security", "review"];
+
+  function updateSavingsBadge() {
+    const selected = agentIds.filter(id => document.getElementById(`chk-agent-${id}`)?.checked);
+    const badge = document.getElementById("token-savings-badge");
+    if (!badge) return;
+    const count = selected.length;
+    let savings = 0;
+    if (count === 0) savings = 100;
+    else if (count === 1) savings = 75;
+    else if (count === 2) savings = 55;
+    else if (count === 3) savings = 40;
+    else if (count === 4) savings = 25;
+    else if (count === 5) savings = 12;
+    else savings = 0;
+
+    if (count === 0) {
+      badge.textContent = `⚠️ Selecciona al menos 1 agente`;
+      badge.style.color = "#F87171";
+      badge.style.background = "rgba(248, 113, 113, 0.15)";
+      badge.style.borderColor = "rgba(248, 113, 113, 0.3)";
+    } else {
+      badge.textContent = `⚡ Ahorro: ~${savings}% • ${count}/6 Agentes`;
+      badge.style.color = savings > 0 ? "#34D399" : "#94A3B8";
+      badge.style.background = savings > 0 ? "rgba(52, 211, 153, 0.15)" : "rgba(148, 163, 184, 0.15)";
+      badge.style.borderColor = savings > 0 ? "rgba(52, 211, 153, 0.3)" : "rgba(148, 163, 184, 0.3)";
+    }
+  }
+
+  // Quick preset buttons for agent selection
+  const presetButtons = document.querySelectorAll(".agent-preset-btn");
+  presetButtons.forEach(btn => {
+    btn.onclick = () => {
+      presetButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const preset = btn.getAttribute("data-preset-agent");
+      if (preset === "full") {
+        agentIds.forEach(id => { const el = document.getElementById(`chk-agent-${id}`); if (el) el.checked = true; });
+        updateModalJobDescription("full");
+      } else if (preset === "coder") {
+        agentIds.forEach(id => { const el = document.getElementById(`chk-agent-${id}`); if (el) el.checked = (id === "coder"); });
+        updateModalJobDescription("coder");
+      } else if (preset === "qa") {
+        agentIds.forEach(id => { const el = document.getElementById(`chk-agent-${id}`); if (el) el.checked = (id === "qa"); });
+        updateModalJobDescription("qa");
+      } else if (preset === "arch_coder") {
+        agentIds.forEach(id => { const el = document.getElementById(`chk-agent-${id}`); if (el) el.checked = (id === "architect" || id === "coder"); });
+        updateModalJobDescription("architect");
+      } else if (preset === "custom") {
+        const inputEl = document.getElementById("task-job-desc-input");
+        if (inputEl) {
+          inputEl.focus();
+          inputEl.classList.add("job-desc-pulse");
+        }
+      }
+      updateSavingsBadge();
+    };
+  });
+
+  agentIds.forEach(id => {
+    const el = document.getElementById(`chk-agent-${id}`);
+    if (el) {
+      el.onchange = () => {
+        presetButtons.forEach(b => {
+          if (b.getAttribute("data-preset-agent") === "custom") b.classList.add("active");
+          else b.classList.remove("active");
+        });
+        if (el.checked) {
+          updateModalJobDescription(id);
+        }
+        updateSavingsBadge();
+      };
+    }
+  });
+
+  const scopeSelect = document.getElementById("task-agent-scope-select");
+  const jobDescTextarea = document.getElementById("task-job-desc-input");
+
+  if (scopeSelect && jobDescTextarea) {
+    scopeSelect.onchange = () => {
+      if (scopeSelect.value !== "custom") {
+        jobDescTextarea.value = JOB_DESCRIPTIONS[scopeSelect.value] || "";
+      }
+      jobDescTextarea.focus();
+    };
+
+    jobDescTextarea.oninput = () => {
+      const val = jobDescTextarea.value;
+      if (activeAgentFilter && activeAgentFilter !== "all") {
+        currentAgentJobDescriptions[activeAgentFilter] = val;
+      }
+      const hubTextarea = document.getElementById("agent-directive-textarea");
+      if (hubTextarea) hubTextarea.value = val;
+    };
+  }
+
+  // Initial calculation
+  updateSavingsBadge();
+
   const submitBtn = document.getElementById("btn-submit-task");
   if (submitBtn) {
     submitBtn.onclick = async () => {
       const title = document.getElementById("task-title-input").value.trim();
-      const requirement_text = document.getElementById("task-desc-input").value.trim();
+      const base_desc = document.getElementById("task-desc-input").value.trim();
       const workspace_path = document.getElementById("task-workspace-input").value.trim();
       const require_human_pr_approval = document.getElementById("task-hitl-checkbox").checked;
+      const javaVersion = document.getElementById("task-java-version-select")?.value || "Java 21";
+      const jobDesc = document.getElementById("task-job-desc-input")?.value?.trim() || "";
 
-      if (!title || !requirement_text) {
+      const selected_agents = agentIds.filter(id => document.getElementById(`chk-agent-${id}`)?.checked);
+
+      if (selected_agents.length === 0) {
+        alert("Por favor selecciona al menos un subagente para realizar la tarea.");
+        return;
+      }
+
+      if (!title || !base_desc) {
         alert("Por favor completa el título y el requerimiento.");
         return;
       }
+
+      let execution_mode = "custom";
+      if (selected_agents.length === 6) execution_mode = "full_pipeline";
+      else if (selected_agents.length === 1 && selected_agents[0] === "coder") execution_mode = "coder_only";
+      else if (selected_agents.length === 1 && selected_agents[0] === "qa") execution_mode = "qa_only";
+      else if (selected_agents.length === 2 && selected_agents.includes("product") && selected_agents.includes("architect")) execution_mode = "architect_only";
+
+      let requirement_text = base_desc;
+      if (jobDesc) {
+        requirement_text += `\n\n[JOB DESCRIPTION & DIRECTIVAS DE ROL]:\n${jobDesc}`;
+      }
+
+      const constraints = [
+        javaVersion,
+        "Spring Boot",
+        "Pure JUnit 5 unit tests"
+      ];
+      if (jobDesc) {
+        constraints.push(`Job Role Directive: ${jobDesc}`);
+      }
+      constraints.push(`Subagentes activos: ${selected_agents.join(", ")}`);
 
       submitBtn.disabled = true;
       submitBtn.textContent = "Iniciando Agentes...";
@@ -785,7 +1228,12 @@ function initModals() {
             title,
             requirement_text,
             workspace_path: workspace_path || "sandbox",
-            require_human_pr_approval
+            require_human_pr_approval,
+            execution_mode,
+            selected_agents,
+            job_description: jobDesc,
+            java_version: javaVersion,
+            constraints
           })
         });
 
@@ -810,6 +1258,8 @@ function initModals() {
 
 function openNewRunModal() {
   document.getElementById("new-run-modal").classList.add("active");
+  const agentKey = (activeAgentFilter && activeAgentFilter !== "all") ? activeAgentFilter : "coder";
+  updateModalJobDescription(agentKey);
 }
 
 function closeNewRunModal() {
@@ -818,6 +1268,26 @@ function closeNewRunModal() {
 
 function triggerSamplePilot() {
   openNewRunModal();
+}
+
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById("app-sidebar");
+  const backdrop = document.getElementById("sidebar-backdrop");
+  if (!sidebar) return;
+  const isOpen = sidebar.classList.contains("mobile-open");
+  if (isOpen) {
+    closeMobileSidebar();
+  } else {
+    sidebar.classList.add("mobile-open");
+    if (backdrop) backdrop.classList.add("active");
+  }
+}
+
+function closeMobileSidebar() {
+  const sidebar = document.getElementById("app-sidebar");
+  const backdrop = document.getElementById("sidebar-backdrop");
+  if (sidebar) sidebar.classList.remove("mobile-open");
+  if (backdrop) backdrop.classList.remove("active");
 }
 
 /* ==========================================================================
@@ -1099,6 +1569,12 @@ function openJiraModal() {
   const modal = document.getElementById("jira-modal");
   if (modal) {
     modal.classList.add("active");
+    if (activeAgentFilter && activeAgentFilter !== "all") {
+      activeJiraRoleFilter = activeAgentFilter;
+    }
+    document.querySelectorAll(".jira-role-pill").forEach(pill => {
+      pill.classList.toggle("active", pill.getAttribute("data-jira-role") === activeJiraRoleFilter);
+    });
     loadJiraIssues();
   }
 }
@@ -1127,6 +1603,32 @@ function openRunForJiraKey(jiraKey) {
   }
 }
 
+function getIssueRoles(issue) {
+  const text = ((issue.key || "") + " " + (issue.summary || "") + " " + (issue.description || "")).toLowerCase();
+  const roles = [];
+  if (text.includes("scrum-11") || text.includes("rate limit") || text.includes("auth") || text.includes("key") || text.includes("security") || text.includes("seguridad") || text.includes("hmac") || text.includes("token")) {
+    roles.push("security");
+  }
+  if (text.includes("test") || text.includes("junit") || text.includes("qa") || text.includes("prueba") || text.includes("edge case") || text.includes("cobertura") || text.includes("assert")) {
+    roles.push("qa");
+  }
+  if (text.includes("scrum-12") || text.includes("diseño") || text.includes("arquitectura") || text.includes("dto") || text.includes("swagger") || text.includes("streaming") || text.includes("api") || text.includes("export")) {
+    roles.push("architect");
+  }
+  if (text.includes("endpoint") || text.includes("spring") || text.includes("controller") || text.includes("servicio") || text.includes("java") || text.includes("código") || text.includes("scrum-13") || text.includes("desarrollo") || roles.length === 0) {
+    roles.push("coder");
+  }
+  return roles;
+}
+
+function filterJiraByRole(role) {
+  activeJiraRoleFilter = role || "all";
+  document.querySelectorAll(".jira-role-pill").forEach(pill => {
+    pill.classList.toggle("active", pill.getAttribute("data-jira-role") === activeJiraRoleFilter);
+  });
+  renderJiraIssues();
+}
+
 async function loadJiraIssues() {
   const container = document.getElementById("jira-issues-container");
   if (!container) return;
@@ -1136,71 +1638,115 @@ async function loadJiraIssues() {
   try {
     const res = await fetch("/integrations/jira/issues");
     if (!res.ok) throw new Error("Error al consultar backlog de Jira");
-    const issues = await res.json();
-
-    if (!issues || issues.length === 0) {
-      container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">No hay tickets pendientes en tu proyecto de Jira en este momento.</p>';
-      return;
-    }
-
-    container.innerHTML = "";
-    issues.forEach(issue => {
-      const card = document.createElement("div");
-      card.className = "jira-card";
-
-      let priorityClass = "jira-priority-medium";
-      if (issue.priority === "Highest") priorityClass = "jira-priority-highest";
-      else if (issue.priority === "High") priorityClass = "jira-priority-high";
-
-      const acCount = (issue.acceptance_criteria && issue.acceptance_criteria.length) || 0;
-      const statusLower = (issue.status || "").toLowerCase();
-      const isReviewOrDone = statusLower.includes("revis") || statusLower.includes("review") || statusLower.includes("finaliz") || statusLower.includes("done");
-
-      let actionButtons = "";
-      if (isReviewOrDone) {
-        actionButtons = `
-          <button class="btn btn-sm btn-outline" style="border: 1px solid var(--accent); color: var(--accent);" onclick="openRunForJiraKey('${escapeHtml(issue.key)}')">
-            👁️ Ver en Revisión Humana
-          </button>
-          <button class="btn btn-sm btn-primary" onclick="importJiraByKey('${escapeHtml(issue.key)}', this)">
-            ⚡ Re-ejecutar con Gemini 3.6
-          </button>
-        `;
-      } else {
-        actionButtons = `
-          <button class="btn btn-sm btn-primary" onclick="importJiraByKey('${escapeHtml(issue.key)}', this)">
-            🚀 Asignar a Java X y Ejecutar
-          </button>
-        `;
-      }
-
-      card.innerHTML = `
-        <div class="jira-card-header">
-          <div class="jira-card-tags">
-            <span class="jira-key-badge">${escapeHtml(issue.key)}</span>
-            <span class="jira-type-badge">${escapeHtml(issue.issue_type)}</span>
-            <span class="jira-priority-badge ${priorityClass}">Prioridad: ${escapeHtml(issue.priority)}</span>
-          </div>
-          <span style="font-size: 0.8rem; font-weight: 600; color: ${isReviewOrDone ? '#F59E0B' : '#60A5FA'};">${escapeHtml(issue.status)}</span>
-        </div>
-        <div class="jira-card-title">${escapeHtml(issue.summary)}</div>
-        <div class="jira-card-desc">${escapeHtml(issue.description)}</div>
-        <div class="jira-card-footer">
-          <div class="jira-assignee-info">
-            <span>👤 Asignado: <strong>${escapeHtml(issue.assignee)}</strong></span>
-            <span>•</span>
-            <span>📋 ${acCount} criterios Gherkin</span>
-          </div>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            ${actionButtons}
-          </div>
-        </div>
-      `;
-      container.appendChild(card);
-    });
+    allLoadedJiraIssues = await res.json();
+    renderJiraIssues();
   } catch (err) {
     container.innerHTML = `<p class="text-danger text-center" style="padding: 20px;">Fallo al conectar con Jira: ${escapeHtml(err.message)}</p>`;
   }
+}
+
+function renderJiraIssues() {
+  const container = document.getElementById("jira-issues-container");
+  if (!container) return;
+
+  const issues = allLoadedJiraIssues || [];
+  if (issues.length === 0) {
+    container.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">No hay tickets pendientes en tu proyecto de Jira en este momento.</p>';
+    return;
+  }
+
+  // Filter by active role
+  const filteredIssues = activeJiraRoleFilter === "all"
+    ? issues
+    : issues.filter(issue => getIssueRoles(issue).includes(activeJiraRoleFilter));
+
+  const countLabel = document.getElementById("jira-tickets-count-label");
+  if (countLabel) {
+    if (activeJiraRoleFilter === "all") {
+      countLabel.textContent = `Tickets Disponibles en Backlog (${issues.length}):`;
+    } else {
+      const roleNames = { coder: "Desarrollador Java", qa: "QA & Tests", security: "Seguridad OWASP", architect: "Arquitectura" };
+      countLabel.textContent = `Tickets para ${roleNames[activeJiraRoleFilter] || activeJiraRoleFilter} (${filteredIssues.length} de ${issues.length}):`;
+    }
+  }
+
+  if (filteredIssues.length === 0) {
+    const roleNames = {
+      coder: "Desarrollador Java",
+      qa: "QA & Tests",
+      security: "Seguridad OWASP",
+      architect: "Arquitectura"
+    };
+    container.innerHTML = `
+      <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+        <p>No se encontraron tickets en el backlog asignados al rol <strong>${roleNames[activeJiraRoleFilter] || activeJiraRoleFilter}</strong>.</p>
+        <button class="btn btn-sm btn-secondary" onclick="filterJiraByRole('all')">Ver Todos los Tickets</button>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = "";
+  filteredIssues.forEach(issue => {
+    const card = document.createElement("div");
+    card.className = "jira-card";
+
+    let priorityClass = "jira-priority-medium";
+    if (issue.priority === "Highest") priorityClass = "jira-priority-highest";
+    else if (issue.priority === "High") priorityClass = "jira-priority-high";
+
+    const acCount = (issue.acceptance_criteria && issue.acceptance_criteria.length) || 0;
+    const statusLower = (issue.status || "").toLowerCase();
+    const isReviewOrDone = statusLower.includes("revis") || statusLower.includes("review") || statusLower.includes("finaliz") || statusLower.includes("done");
+
+    const roles = getIssueRoles(issue);
+    const roleBadgesHtml = roles.map(r => {
+      const labels = { coder: "💻 Dev", qa: "🧪 QA", security: "🛡️ Sec", architect: "📐 Arq" };
+      return `<span class="jira-role-badge ${r}">${labels[r] || r}</span>`;
+    }).join(" ");
+
+    let actionButtons = "";
+    if (isReviewOrDone) {
+      actionButtons = `
+        <button class="btn btn-sm btn-outline" style="border: 1px solid var(--accent); color: var(--accent);" onclick="openRunForJiraKey('${escapeHtml(issue.key)}')">
+          👁️ Ver en Revisión Humana
+        </button>
+        <button class="btn btn-sm btn-primary" onclick="importJiraByKey('${escapeHtml(issue.key)}', this)">
+          ⚡ Re-ejecutar con Gemini 3.6
+        </button>
+      `;
+    } else {
+      actionButtons = `
+        <button class="btn btn-sm btn-primary" onclick="importJiraByKey('${escapeHtml(issue.key)}', this)">
+          🚀 Asignar a Java X y Ejecutar
+        </button>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="jira-card-header">
+        <div class="jira-card-tags">
+          <span class="jira-key-badge">${escapeHtml(issue.key)}</span>
+          <span class="jira-type-badge">${escapeHtml(issue.issue_type)}</span>
+          <span class="jira-priority-badge ${priorityClass}">Prioridad: ${escapeHtml(issue.priority)}</span>
+          ${roleBadgesHtml}
+        </div>
+        <span style="font-size: 0.8rem; font-weight: 600; color: ${isReviewOrDone ? '#F59E0B' : '#60A5FA'};">${escapeHtml(issue.status)}</span>
+      </div>
+      <div class="jira-card-title">${escapeHtml(issue.summary)}</div>
+      <div class="jira-card-desc">${escapeHtml(issue.description)}</div>
+      <div class="jira-card-footer">
+        <div class="jira-assignee-info">
+          <span>👤 Asignado: <strong>${escapeHtml(issue.assignee)}</strong></span>
+          <span>•</span>
+          <span>📋 ${acCount} criterios Gherkin</span>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          ${actionButtons}
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
 }
 
 async function importJiraByKey(customKey, btnElement) {

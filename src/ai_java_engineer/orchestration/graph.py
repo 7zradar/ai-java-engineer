@@ -10,7 +10,10 @@ from ai_java_engineer.agents.product.product_agent import ProductAgent
 from ai_java_engineer.agents.qa.qa_agent import QAAgent
 from ai_java_engineer.agents.reviewer.review_agent import ReviewAgent
 from ai_java_engineer.agents.security.security_agent import SecurityAgent
+from ai_java_engineer.domain.architecture import ArchitectureSpec, EndpointSpec, ComponentSpec
+from ai_java_engineer.domain.artifact import CodePlan, SecurityResult, ReviewResult
 from ai_java_engineer.domain.execution import RunStatus
+from ai_java_engineer.domain.requirement import ProductSpec, UserStory, AcceptanceCriterion, RequirementSpec
 from ai_java_engineer.execution.base import ExecutionBackend
 from ai_java_engineer.infrastructure.logging import get_logger
 from ai_java_engineer.llm.base import ModelProvider
@@ -73,13 +76,36 @@ class EngineeringOrchestrator:
             logger.info("Human approval granted. Proceeding directly to Git PR Delivery Node.", execution_id=state["execution_id"])
             return self._deliver_pr(state, git)
 
+        mode = state.get("execution_mode") or "full_pipeline"
+        selected_agents = list(state.get("selected_agents") or [])
+        if not selected_agents:
+            if mode == "coder_only":
+                selected_agents = ["coder"]
+            elif mode == "qa_only":
+                selected_agents = ["qa"]
+            elif mode == "architect_only":
+                selected_agents = ["product", "architect"]
+            else:
+                selected_agents = ["product", "architect", "coder", "qa", "security", "review"]
+        state["selected_agents"] = selected_agents
+
         # 1. Product Node
         req = state.get("requirement")
         if isinstance(req, dict):
             state["requirement"] = RequirementSpec.model_validate(req)
-        logger.info("Executing Product Node", execution_id=state["execution_id"])
-        state["product_spec"] = await self.product_agent.execute(state["requirement"])
-        self._checkpoint("product_node", state)
+
+        if "product" in selected_agents:
+            logger.info("Executing Product Node", execution_id=state["execution_id"])
+            state["product_spec"] = await self.product_agent.execute(state["requirement"])
+            self._checkpoint("product_node", state)
+        else:
+            logger.info(f"Selective mode: Skipping Product Node for token saving", execution_id=state["execution_id"])
+            state["product_spec"] = ProductSpec(
+                title=state["requirement"].title,
+                summary=state["requirement"].raw_text[:250],
+                user_stories=[UserStory(id="US-001", title=state["requirement"].title, as_a="Usuario", i_want="utilizar esta funcionalidad", so_that="cumpla el requerimiento")],
+                acceptance_criteria=[AcceptanceCriterion(id="AC-001", scenario="Ejecución exitosa", given="Entorno activo", when="Se invoca el servicio", then="Responde código 200 OK")]
+            )
 
         # 2. Repository Context Node & Corporate Standards RAG
         logger.info("Indexing Repository & Loading Corporate Knowledge", execution_id=state["execution_id"])
@@ -92,44 +118,80 @@ class EngineeringOrchestrator:
         self._checkpoint("context_node", state)
 
         # 3. Architect Node
-        logger.info("Executing Architect Node", execution_id=state["execution_id"])
-        state["architecture_spec"] = await self.architect_agent.execute(
-            state["product_spec"], state["repository_context"]
-        )
-        self._checkpoint("architect_node", state)
+        if "architect" in selected_agents:
+            logger.info("Executing Architect Node", execution_id=state["execution_id"])
+            state["architecture_spec"] = await self.architect_agent.execute(
+                state["product_spec"], state["repository_context"]
+            )
+            self._checkpoint("architect_node", state)
+        else:
+            logger.info(f"Selective mode: Skipping Architect Node for token saving", execution_id=state["execution_id"])
+            state["architecture_spec"] = ArchitectureSpec(
+                summary="Arquitectura directa generada para desarrollo rápido",
+                endpoints=[
+                    EndpointSpec(
+                        method="GET",
+                        path="/api/v1/resource",
+                        description="Endpoint directo generado para modo desarrollador",
+                        response_dto="ResourceResponse",
+                        status_code=200,
+                    )
+                ],
+                components=[
+                    ComponentSpec(
+                        package="com.example.app.service",
+                        name="DirectService",
+                        component_type="SERVICE",
+                        description="Lógica de negocio directa",
+                    )
+                ],
+            )
+
+        if "coder" not in selected_agents and "qa" not in selected_agents:
+            logger.info("Architect/Product Only mode completed. Stopping pipeline.", execution_id=state["execution_id"])
+            state["status"] = RunStatus.COMPLETED
+            return state
 
         # 4. Coding Node
-        logger.info("Executing Coding Node", execution_id=state["execution_id"])
-        state["code_plan"] = await self.coding_agent.execute(
-            state["product_spec"], state["architecture_spec"], state["repository_context"]
-        )
-
-        # Apply code plan to filesystem
-        for action in state["code_plan"].actions:
-            if action.action in ("CREATE", "MODIFY"):
-                fs.write_file(WriteFileInput(path=action.path, content=action.content))
-                if action.path not in state["changed_files"]:
-                    state["changed_files"].append(action.path)
-
-        self._checkpoint("coder_node", state)
+        if "coder" in selected_agents:
+            logger.info("Executing Coding Node", execution_id=state["execution_id"])
+            state["code_plan"] = await self.coding_agent.execute(
+                state["product_spec"], state["architecture_spec"], state["repository_context"]
+            )
+            # Apply code plan to filesystem
+            for action in state["code_plan"].actions:
+                if action.action in ("CREATE", "MODIFY"):
+                    fs.write_file(WriteFileInput(path=action.path, content=action.content))
+                    if action.path not in state["changed_files"]:
+                        state["changed_files"].append(action.path)
+            self._checkpoint("coder_node", state)
+        else:
+            logger.info("Selective mode: Skipping Coding Node by user configuration", execution_id=state["execution_id"])
+            state["code_plan"] = CodePlan(summary="Plan directo para QA testing", actions=[])
 
         # 5. QA Node (Independent Quality Assurance Subagent)
-        logger.info("Executing QA Node", execution_id=state["execution_id"])
-        state["qa_plan"] = await self.qa_agent.execute(
-            state["product_spec"], state["architecture_spec"], state["code_plan"]
-        )
+        if "qa" in selected_agents:
+            logger.info("Executing QA Node", execution_id=state["execution_id"])
+            state["qa_plan"] = await self.qa_agent.execute(
+                state["product_spec"], state["architecture_spec"], state["code_plan"]
+            )
+            # Apply QA test plan to filesystem
+            for action in state["qa_plan"].actions:
+                if action.action in ("CREATE", "MODIFY"):
+                    fs.write_file(WriteFileInput(path=action.path, content=action.content))
+                    if action.path not in state["changed_files"]:
+                        state["changed_files"].append(action.path)
+            self._checkpoint("qa_node", state)
+        else:
+            logger.info("Selective mode: Skipping QA Node by user configuration", execution_id=state["execution_id"])
 
-        # Apply QA test plan to filesystem
-        for action in state["qa_plan"].actions:
-            if action.action in ("CREATE", "MODIFY"):
-                fs.write_file(WriteFileInput(path=action.path, content=action.content))
-                if action.path not in state["changed_files"]:
-                    state["changed_files"].append(action.path)
-
-        self._checkpoint("qa_node", state)
+        # If no code was generated, finish early
+        if not state["changed_files"]:
+            logger.info("No files modified by selected agents. Completing run.", execution_id=state["execution_id"])
+            state["status"] = RunStatus.COMPLETED
+            return state
 
         # 6. Build & Self-Healing Debug Loop
-
         while True:
             logger.info("Executing Build Node", iteration=state["iteration"])
             state["build_result"] = await self.backend.run_build(str(ws_root))
@@ -170,37 +232,51 @@ class EngineeringOrchestrator:
         state["test_result"] = await self.backend.run_tests(str(ws_root))
         self._checkpoint("test_node", state)
 
-        # 7. Security Node
-        logger.info("Executing Security Node", execution_id=state["execution_id"])
-        files_to_scan = {}
-        for cf in state["changed_files"]:
-            try:
-                out = fs.read_file(ReadFileInput(path=cf))
-                files_to_scan[cf] = out.content
-            except Exception:
-                continue
+        # 7. Security Node & 8. Review Node
+        if "security" in selected_agents:
+            # 7. Security Node
+            logger.info("Executing Security Node", execution_id=state["execution_id"])
+            files_to_scan = {}
+            for cf in state["changed_files"]:
+                try:
+                    out = fs.read_file(ReadFileInput(path=cf))
+                    files_to_scan[cf] = out.content
+                except Exception:
+                    continue
 
-        state["security_result"] = await self.security_agent.execute(files_to_scan)
-        if state["security_result"].has_critical:
-            logger.error("Critical security finding detected! Halting pipeline.")
-            state["status"] = RunStatus.SECURITY_BLOCKED
-            state["escalation_reason"] = "Critical security vulnerability detected."
-            self._checkpoint("security_blocked_node", state)
-            return state
+            state["security_result"] = await self.security_agent.execute(files_to_scan)
+            if state["security_result"].has_critical:
+                logger.error("Critical security finding detected! Halting pipeline.")
+                state["status"] = RunStatus.SECURITY_BLOCKED
+                state["escalation_reason"] = "Critical security vulnerability detected."
+                self._checkpoint("security_blocked_node", state)
+                return state
 
-        self._checkpoint("security_node", state)
+            self._checkpoint("security_node", state)
+        else:
+            logger.info("Selective mode: Skipping Security Guard to maximize token savings.", execution_id=state["execution_id"])
+            state["security_result"] = SecurityResult(passed=True, has_critical=False, findings=[])
 
-        # 8. Review Node
-        logger.info("Executing Review Node", execution_id=state["execution_id"])
-        state["git_diff"] = git.get_diff()
-        state["review_result"] = await self.review_agent.execute(
-            state["product_spec"],
-            state["architecture_spec"],
-            state["git_diff"],
-            state["test_result"],
-            state["security_result"],
-        )
-        self._checkpoint("review_node", state)
+        if "review" in selected_agents:
+            # 8. Review Node
+            logger.info("Executing Review Node", execution_id=state["execution_id"])
+            state["git_diff"] = git.get_diff()
+            state["review_result"] = await self.review_agent.execute(
+                state["product_spec"],
+                state["architecture_spec"],
+                state["git_diff"],
+                state["test_result"],
+                state["security_result"],
+            )
+            self._checkpoint("review_node", state)
+        else:
+            logger.info("Selective mode: Skipping Review Agent to maximize token savings.", execution_id=state["execution_id"])
+            state["review_result"] = ReviewResult(
+                verdict="APPROVED",
+                score=1.0,
+                summary=f"Modo selectivo ({', '.join(selected_agents)}): Ejecución focalizada exitosa sin overhead de tokens.",
+                checklist=[]
+            )
 
         # 9. Human Approval Gate
         if self.require_human_pr_approval and not state.get("human_approved"):
