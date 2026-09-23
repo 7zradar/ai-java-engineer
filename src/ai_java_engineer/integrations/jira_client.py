@@ -239,28 +239,67 @@ class JiraClient:
             logger.error(f"Failed to parse Jira webhook payload: {e}")
             return None
 
+    @staticmethod
+    def _extract_adf_text(doc: Any) -> str:
+        """Extracts plain text from Atlassian Document Format (ADF) JSON structure."""
+        if not doc:
+            return ""
+        if isinstance(doc, str):
+            return doc
+        if isinstance(doc, dict):
+            if doc.get("type") == "text":
+                return doc.get("text", "")
+            texts = []
+            for item in doc.get("content", []):
+                extracted = JiraClient._extract_adf_text(item)
+                if extracted:
+                    texts.append(extracted)
+            return " ".join(texts).strip()
+        if isinstance(doc, list):
+            return " ".join([JiraClient._extract_adf_text(item) for item in doc if item]).strip()
+        return str(doc)
+
     # ------------------------------------------------------------------------
     # Live Atlassian Jira Cloud REST API (v3) Implementation
     # ------------------------------------------------------------------------
     def _fetch_live_assigned_issues(self, assignee: str) -> list[JiraIssue]:
         base_url = self.settings.jira_url.rstrip("/")
-        jql = urllib.parse.quote(f'assignee = "{assignee}" AND statusCategory != Done ORDER BY updated DESC')
-        url = f"{base_url}/rest/api/3/search?jql={jql}&maxResults=20"
+        project_clause = f'project = "{self.settings.jira_project_key}"' if self.settings.jira_project_key else ""
+        if project_clause:
+            jql_query = f"{project_clause} AND statusCategory != Done ORDER BY updated DESC"
+        else:
+            jql_query = "statusCategory != Done ORDER BY updated DESC"
+
+        jql_encoded = urllib.parse.quote(jql_query)
+        url = f"{base_url}/rest/api/3/search/jql?jql={jql_encoded}&maxResults=20&fields=summary,description,status,priority,issuetype,assignee,labels"
         req = urllib.request.Request(url, headers=self._get_auth_headers())
-        with urllib.request.urlopen(req, timeout=8) as res:
+        with urllib.request.urlopen(req, timeout=10) as res:
             data = json.loads(res.read().decode("utf-8"))
             issues = []
             for item in data.get("issues", []):
                 fields = item.get("fields", {})
+                desc_raw = fields.get("description")
+                desc_text = self._extract_adf_text(desc_raw) if desc_raw else ""
+
+                assignee_field = fields.get("assignee")
+                assignee_name = assignee_field.get("displayName") if assignee_field else "Sin asignar"
+
+                priority_field = fields.get("priority")
+                priority_name = priority_field.get("name") if priority_field else "Medium"
+
+                status_field = fields.get("status")
+                status_name = status_field.get("name") if status_field else "To Do"
+
                 issues.append(
                     JiraIssue(
                         key=item.get("key"),
                         summary=fields.get("summary", ""),
-                        description=str(fields.get("description", "")),
+                        description=desc_text or f"Requerimiento importado de Jira {item.get('key')}",
                         issue_type=fields.get("issuetype", {}).get("name", "Story"),
-                        status=fields.get("status", {}).get("name", "To Do"),
-                        priority=fields.get("priority", {}).get("name", "Medium"),
-                        assignee=assignee,
+                        status=status_name,
+                        priority=priority_name,
+                        assignee=assignee_name,
+                        labels=fields.get("labels", []),
                     )
                 )
             return issues
@@ -269,16 +308,30 @@ class JiraClient:
         base_url = self.settings.jira_url.rstrip("/")
         url = f"{base_url}/rest/api/3/issue/{issue_key}"
         req = urllib.request.Request(url, headers=self._get_auth_headers())
-        with urllib.request.urlopen(req, timeout=8) as res:
+        with urllib.request.urlopen(req, timeout=10) as res:
             data = json.loads(res.read().decode("utf-8"))
             fields = data.get("fields", {})
+            desc_raw = fields.get("description")
+            desc_text = self._extract_adf_text(desc_raw) if desc_raw else ""
+
+            assignee_field = fields.get("assignee")
+            assignee_name = assignee_field.get("displayName") if assignee_field else "Java X"
+
+            priority_field = fields.get("priority")
+            priority_name = priority_field.get("name") if priority_field else "Medium"
+
+            status_field = fields.get("status")
+            status_name = status_field.get("name") if status_field else "To Do"
+
             return JiraIssue(
                 key=data.get("key"),
                 summary=fields.get("summary", ""),
-                description=str(fields.get("description", "")),
+                description=desc_text or f"Requerimiento importado de Jira {data.get('key')}",
                 issue_type=fields.get("issuetype", {}).get("name", "Story"),
-                status=fields.get("status", {}).get("name", "To Do"),
-                priority=fields.get("priority", {}).get("name", "Medium"),
+                status=status_name,
+                priority=priority_name,
+                assignee=assignee_name,
+                labels=fields.get("labels", []),
             )
 
     def _post_live_comment(self, issue_key: str, comment_text: str) -> bool:
@@ -300,12 +353,57 @@ class JiraClient:
         headers = self._get_auth_headers()
         headers["Content-Type"] = "application/json"
         req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=8) as res:
+        with urllib.request.urlopen(req, timeout=10) as res:
             return res.status in (200, 201)
 
     def _post_live_transition(self, issue_key: str, target_status: str) -> bool:
-        # Calls /rest/api/3/issue/{issue_key}/transitions
-        return True
+        base_url = self.settings.jira_url.rstrip("/")
+        transitions_url = f"{base_url}/rest/api/3/issue/{issue_key}/transitions"
+        headers = self._get_auth_headers()
+
+        # 1. Fetch available transitions
+        req = urllib.request.Request(transitions_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as res:
+            t_data = json.loads(res.read().decode("utf-8"))
+            transitions = t_data.get("transitions", [])
+
+        # 2. Find best transition match
+        target_norm = target_status.lower()
+        selected_id = None
+
+        for t in transitions:
+            t_name = t.get("name", "").lower()
+            to_name = t.get("to", {}).get("name", "").lower()
+            to_cat = t.get("to", {}).get("statusCategory", {}).get("key", "").lower()
+
+            if "review" in target_norm or "revis" in target_norm:
+                if "revis" in t_name or "review" in t_name or "revis" in to_name:
+                    selected_id = t["id"]
+                    break
+            elif "done" in target_norm or "finaliz" in target_norm or "qa" in target_norm:
+                if to_cat == "done" or "finaliz" in t_name or "done" in t_name or "listo" in t_name:
+                    selected_id = t["id"]
+                    break
+            elif "progress" in target_norm or "curso" in target_norm:
+                if "curso" in t_name or "progress" in t_name or "curso" in to_name:
+                    selected_id = t["id"]
+                    break
+            elif target_norm in t_name or target_norm in to_name:
+                selected_id = t["id"]
+                break
+
+        if not selected_id and transitions:
+            logger.info(f"No explicit transition match for '{target_status}', skipping live transition.")
+            return False
+
+        # 3. Post transition
+        body = {"transition": {"id": selected_id}}
+        data_bytes = json.dumps(body).encode("utf-8")
+        post_headers = {**headers, "Content-Type": "application/json"}
+        post_req = urllib.request.Request(transitions_url, data=data_bytes, headers=post_headers, method="POST")
+        with urllib.request.urlopen(post_req, timeout=10) as res:
+            logger.info(f"Successfully transitioned Jira {issue_key} to {target_status} (transition ID {selected_id})")
+            return res.status in (200, 204)
 
     def _get_auth_headers(self) -> dict[str, str]:
         import base64

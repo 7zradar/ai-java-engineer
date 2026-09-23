@@ -9,14 +9,23 @@ from ai_java_engineer.integrations.jira_client import jira_client, JiraIssue
 client = TestClient(app)
 
 
+from ai_java_engineer.infrastructure.settings import AppSettings
+
 def test_jira_client_list_issues():
-    issues = jira_client.list_assigned_issues()
+    # Test demo / isolated mode
+    demo_client = JiraClient(settings=AppSettings(jira_api_token=None, jira_url=None))
+    issues = demo_client.list_assigned_issues()
     assert len(issues) >= 4
     keys = [i.key for i in issues]
     assert "PAY-104" in keys
     assert "AUTH-205" in keys
     assert "ORD-301" in keys
     assert "BUG-412" in keys
+
+    # Test active client (live or fallback)
+    active_issues = jira_client.list_assigned_issues()
+    assert len(active_issues) >= 1
+
 
 
 def test_jira_client_get_issue():
