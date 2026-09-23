@@ -440,16 +440,25 @@
         <div class="modal-body">
           <!-- PRESETS SELECTOR -->
           <div class="form-group">
-            <label class="form-label">Plantillas Rápidas (Presets):</label>
-            <div class="presets-row">
+            <label class="form-label">Plantillas Rápidas de Ingeniería (Presets):</label>
+            <div class="presets-row" style="flex-wrap: wrap; gap: 8px;">
               <button type="button" class="preset-btn active" data-preset="feature">
-                🚀 Nueva Funcionalidad
+                🚀 Paginación & Pedidos
+              </button>
+              <button type="button" class="preset-btn" data-preset="security">
+                🛡️ Filtro API Key
+              </button>
+              <button type="button" class="preset-btn" data-preset="payments">
+                💳 Idempotencia Pagos
               </button>
               <button type="button" class="preset-btn" data-preset="bugfix">
-                🛠️ Corrección de Bug (Self-healing)
+                🛠️ Corrección NPE
               </button>
               <button type="button" class="preset-btn" data-preset="testing">
-                🧪 Suite de Pruebas Unitarias
+                🧪 Suite JUnit 5
+              </button>
+              <button type="button" class="preset-btn" data-preset="observability">
+                📊 Interceptor Latencia
               </button>
             </div>
           </div>

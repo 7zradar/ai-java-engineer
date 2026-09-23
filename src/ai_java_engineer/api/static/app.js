@@ -23,6 +23,14 @@ const PRESETS = {
     title: "API de Historial de Pedidos de Clientes",
     desc: "Construir endpoint GET /api/v1/customers/{id}/orders con paginación y filtros de estado (PENDING, SHIPPED) utilizando Spring Boot 3 y Java 21."
   },
+  security: {
+    title: "Filtro de Autenticación de API Key para Microservicios",
+    desc: "Implementar OncePerRequestFilter en Spring Boot 3 para interceptar el header 'X-Internal-API-Key'. Validar que las peticiones a endpoints '/api/v1/internal/**' contengan una clave válida y responder HTTP 401 si es inválida o ausente."
+  },
+  payments: {
+    title: "Control de Idempotencia para Transacciones de Pago (POST /api/v1/payments)",
+    desc: "Crear servicio Spring Boot 3 con endpoint POST /api/v1/payments que reciba el header 'Idempotency-Key' y el payload de pago. Retornar 200 OK con respuesta en caché si ya fue procesada, o 201 Created si es nueva."
+  },
   bugfix: {
     title: "Corrección de NullPointerException en CustomerService",
     desc: "En CustomerService, validar que si el cliente está inactivo o no existe se lance una excepción de negocio con código 400 Bad Request en lugar de NullPointerException."
@@ -30,6 +38,10 @@ const PRESETS = {
   testing: {
     title: "Pruebas Unitarias con JUnit 5 y Mockito para OrderController",
     desc: "Generar una suite completa de pruebas unitarias con JUnit 5 y Mockito para OrderController cubriendo casos exitosos, validaciones negativas y casos de borde."
+  },
+  observability: {
+    title: "Interceptor de Auditoría y Tiempos de Latencia para Peticiones HTTP",
+    desc: "Construir HandlerInterceptor en Spring Boot 3 que mida el tiempo de respuesta en ms, genere Correlation-ID único y agregue cabeceras 'X-Response-Time-Ms' y 'X-Correlation-ID'."
   }
 };
 
